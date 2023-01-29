@@ -1,0 +1,119 @@
+/*
+ * Copyright (c) 2023 RMF <rawmonk@firemail.cc>
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+#include <unistd.h>
+#include <fcntl.h>
+#include <dirent.h>
+#include <stdlib.h>
+#include <string.h>
+#include "view.h"
+#include "file.h"
+#include "strlcpy.h"
+#include "client.h"
+#include "util.h"
+
+int file_init(struct view *view) {
+
+	PZERO(view);
+	if (view->path != getcwd(V(view->path)))
+		return -1;
+
+	view->fd = open(view->path, O_DIRECTORY);
+	if (view->fd < 0)
+		return -1;
+
+	return 0;
+}
+
+int file_up(struct view *view) {
+	return file_cd(view, "..");
+}
+
+int file_cd(struct view *view, const char *path) {
+	int fd = openat(view->fd, path, O_DIRECTORY);
+	if (fd < 0) return -1;
+	close(view->fd);
+	view->fd = fd;
+	fchdir(fd);
+	getcwd(V(view->path));
+	view->selected = 0;
+	return 0;
+}
+
+void file_free(struct view *view) {
+	free(view->entries);
+	view->length = 0;
+	view->entries = NULL;
+}
+
+int file_ls(struct view *view) {
+	struct dirent *entry;
+	DIR *dp;
+	int length, i, fd;
+
+	fd = dup(view->fd);
+	dp = fdopendir(fd);
+	if (dp == NULL)
+		return -1;
+
+	/* make a array of entry, sort it */
+	length = 0;
+	while ((entry = readdir(dp))) {
+		if (!view->showhidden && entry->d_name[0] == '.')
+			continue;
+		if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, ".."))
+			length++;
+	}
+	if (length == 0) {
+		file_free(view);
+		return 0;
+	}
+	
+	rewinddir(dp);
+	file_free(view);
+	view->entries = malloc(sizeof(struct entry) * length);
+	i = 0;
+	while ((entry = readdir(dp))) {
+		if (!strcmp(entry->d_name, ".") ||
+		    !strcmp(entry->d_name, ".."))
+			continue;
+		if (!view->showhidden && entry->d_name[0] == '.')
+			continue;
+		strlcpy(view->entries[i].name, entry->d_name,
+			sizeof(view->entries[i].name));
+		view->entries[i].type = entry->d_type;
+		i++;
+	}
+
+	closedir(dp);
+	close(fd);
+	view->length = length;
+	view->scroll = 0;
+	lseek(view->fd, 0, SEEK_SET);
+	return 0;
+}
+
+int file_select(struct view *view, const char *path) {
+	size_t i = 0;
+	while (i < view->length) {
+		if (!strncmp(view->entries[i].name, path,
+			     sizeof(view->entries[i].name))) {
+			view->selected = i;
+			return 0;
+		}
+		i++;
+	}
+	return -1;
+}
