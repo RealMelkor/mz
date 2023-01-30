@@ -26,6 +26,7 @@ struct client client;
 static char *fetch_name(struct view *view) {
 	char *ptr = strrchr(view->path, '/');
 	if (!ptr) return NULL;
+	if (ptr == view->path && *(ptr + 1) == '\0') return ptr;
 	return ptr + 1;
 }
 
@@ -33,7 +34,7 @@ static int name_length(struct view *view) {
 	char *ptr = strrchr(view->path, '/');
 	if (!ptr) return -1;
 	ptr++;
-	return strnlen(ptr, sizeof(view->path) - (ptr - view->path));
+	return AZ(strnlen(ptr, sizeof(view->path) - (ptr - view->path)));
 }
 
 int client_init() {
@@ -51,44 +52,86 @@ int client_clean() {
 }
 
 static void client_tabbar(struct view *view) {
-	size_t sum_next, sum_prev;
-	struct view *ptr = view;
+	struct view *ptr, *start;
+	int x, width, prev_sum, next_sum;
 
-	sum_next = 0;
-	while (ptr) {
-		sum_next += name_length(ptr) + 2;
-		ptr = ptr->next;
+	width = client.width - name_length(view) - 2;
+	if (width <= 0) {
+		start = view;
+		goto draw;
+	}
+	/* if width is less than 0 just draw the current tab */
+
+	ptr = view;
+	if (!ptr->prev) {
+		start = ptr;
+		goto draw;
+	}
+	prev_sum = 0;
+	while (ptr->prev) {
+		ptr = ptr->prev;
+		prev_sum += name_length(ptr) + 2;
 	}
 
-	ptr = view->prev;
-	sum_prev = 0;
+	if (prev_sum < width/2) {
+		start = ptr;
+		goto draw;
+	}
+
+	ptr = view;
+	next_sum = 0;
+	while (ptr->next) {
+		ptr = ptr->next;
+		next_sum += name_length(ptr) + 2;
+	}
+
+	if (next_sum < width/2) {
+		x = client.width;
+		while (ptr) {
+			int len = name_length(ptr) + 2;
+			if (x - len < 0) {
+				ptr = ptr->next;
+				break;
+			}
+			x -= len;
+			if (!ptr->prev) break;
+			ptr = ptr->prev;
+		}
+		start = ptr;
+		goto draw;
+	}
+
+	ptr = view;
+	x = width/2;
 	while (ptr) {
-		sum_prev += name_length(ptr) + 2;
+		int len = name_length(ptr) + 2;
+		if (x - len < 0) {
+			ptr = ptr->next;
+			break;
+		}
+		x -= len;
 		if (!ptr->prev) break;
 		ptr = ptr->prev;
 	}
-	if (!ptr) ptr = view;
-
-	/* most likely scenario */
-	if (sum_prev + sum_next < (unsigned)client.width) {
-		size_t x = 0;
-		while (ptr) {
-			tb_printf(x, 0,
-				(ptr == view ? TB_DEFAULT : TB_UNDERLINE),
-				(ptr == view ? TB_DEFAULT : TB_WHITE),
-				" %s ", fetch_name(ptr));
-			x += name_length(ptr) + 2;
-			ptr = ptr->next;
-		}
-		while (x < (unsigned)client.width) {
-			tb_set_cell(x, 0, ' ', TB_DEFAULT, TB_WHITE);
-			x++;
-		}
-	} else if (sum_prev > client.width/2 && sum_next > client.width/2) {
-		/* draw to the left till it reach half width
-		 * then start drawing to the right till it full width */
+	start = ptr;
+draw:
+	ptr = start;
+	x = 0;
+	while (ptr && x < (signed)client.width) {
+		tb_printf(x, 0,
+			TB_DEFAULT,
+			(ptr == view ? TB_DEFAULT : TB_WHITE),
+			" %s ", fetch_name(ptr));
+		x += name_length(ptr) + 2;
+		ptr = ptr->next;
 	}
 
+	while (x < (signed)client.width) {
+		tb_set_cell(x, 0, ' ', TB_DEFAULT, TB_WHITE);
+		x++;
+	}
+	tb_printf(30, 10, TB_DEFAULT, TB_DEFAULT, "%d", width);
+	return;
 }
 
 int client_update() {
@@ -122,20 +165,8 @@ int client_update() {
 
 
 	/* display tabs bar if there's more than one tab */
-	if (TABS) {
-		/*
-		 * count the sum of file name length on prev tabs and the sum
-		 * of those on next tabs,
-		 * - if the sum of both sums is less than the client width than 
-		 *   print all from x:0
-		 * - else if the sum of the next tabs is less than half width 
-		 *   but the sum of the prev tabs is more than half width than
-		 *   start by print from the last tab on the right
-		 *
-		 *   (the current tab is counted as a next tab)
-		 */
+	if (TABS)
 		client_tabbar(view);
-	}
 
 	tb_present();
 
@@ -243,8 +274,10 @@ void client_reset() {
 int client_input() {
 	struct tb_event ev;
 	struct view *view = client.view;
+	int ret;
 
-	if (tb_poll_event(&ev) != TB_OK) {
+	ret = tb_poll_event(&ev);
+	if (ret != TB_OK && ret != TB_ERR_POLL) {
 		return -1;
 	}
 
@@ -333,9 +366,10 @@ int client_input() {
 		break;
 	case 'e':
 	{
-		char buf[1024];
+		char buf[2048];
 		tb_shutdown();
-		snprintf(V(buf), "$EDITOR %s/%s", view->path, SELECTED(view));
+		snprintf(V(buf), "$EDITOR \"%s/%s\"",
+				view->path, SELECTED(view));
 		system(buf);
 		tb_init();
 	}

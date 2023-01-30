@@ -42,7 +42,6 @@ void view_open(struct view *view) {
 	client.error = 0;
 	switch (view->entries[view->selected].type) {
 	case DT_REG:
-		
 		if ((size_t)snprintf(V(buf), "xdg-open \"%s\" 2>/dev/null &",
 			  view->entries[view->selected].name) >= sizeof(buf)) {
 			sstrcpy(client.info, "path too long");
