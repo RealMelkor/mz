@@ -247,7 +247,14 @@ int parse_command() {
                 return newtab();
 	if (cmd[0] == '!') {
 		tb_shutdown();
-		system(&cmd[1]);
+		if (system(&cmd[1])) sleep(1);
+		tb_init();
+		file_ls(client.view);
+		return 0;
+	}
+	if (!strncmp(cmd, "sh", sizeof(client.field) - 1)) {
+		tb_shutdown();
+		system("$SHELL");
 		tb_init();
 		file_ls(client.view);
 		return 0;
@@ -258,41 +265,69 @@ int parse_command() {
         return 0;
 }
 
+static void client_select(int next) {
+	
+	struct view *view = client.view;
+	size_t i;
+
+	if (view->length < 1 || !*client.search)
+		return;
+
+	i = view->selected + next;
+	while (i != view->selected || !next) {
+		if (!next) next = 1;
+		if (i == view->length) i = 0;
+		if (strcasestr(view->entries[i].name, client.search)) {
+			view->selected = i;
+			break;
+		}
+		if (next < 0 && i == 0) i = view->length;
+		i += next;
+	}
+}
+
 int client_command(struct tb_event ev) {
 
         int pos;
 
         switch (ev.key) {
         case TB_KEY_ESC:
-                client.command = 0;
+                client.mode = MODE_NORMAL;
 		client.field[0] = '\0';
                 return 0;
         case TB_KEY_BACKSPACE2:
         case TB_KEY_BACKSPACE:
-                pos = strnlen(client.field, sizeof(client.field));
+                pos = strnlen(V(client.field));
                 if (pos > 1)
                         client.field[pos - 1] = '\0';
                 else
-                        client.command = 0;
+                        client.mode = MODE_NORMAL;
                 return 0;
         case TB_KEY_ENTER:
-                pos = parse_command();
-                client.command = 0;
+		pos = 0;
+		if (client.mode == MODE_COMMAND)
+                	pos = parse_command();
+                client.mode = MODE_NORMAL;
                 client.field[0] = '\0';
                 return pos;
         }
 
         if (!ev.ch) return 0;
 
-        pos = strnlen(client.field, sizeof(client.field));
+        pos = strnlen(client.field, sizeof(client.field) - 2);
         client.field[pos] = ev.ch;
         client.field[pos + 1] = '\0';
+	if (client.mode == MODE_SEARCH) {
+		strlcpy(client.search, &client.field[1],
+			sizeof(client.search) - 2);
+		client_select(0);
+	}
 
         return 0;
 }
 
 void client_reset() {
-	client.counter = client.g = 0;
+	client.counter = client.g = client.y = 0;
 }
 
 int client_input() {
@@ -315,7 +350,7 @@ int client_input() {
 		return 0;
 	}
 
-	if (client.command) {
+	if (client.mode == MODE_COMMAND || client.mode == MODE_SEARCH) {
 		return client_command(ev);
 	}
 
@@ -332,6 +367,8 @@ int client_input() {
                 client.counter = client.counter * 10 + i;
                 return 0;
         }
+	
+	if (ev.key == TB_KEY_ENTER) goto open;
 
 	switch (ev.ch) {
 	case 'j':
@@ -343,6 +380,7 @@ int client_input() {
 		client.counter = 0;
 		break;
 	case 'l':
+open:
 		view_open(view);
 		break;
 	case 'h':
@@ -381,12 +419,19 @@ int client_input() {
 		TOGGLE(view->showhidden);
 		file_ls(view);
 		break;
-	case ':':
-		client.command = 1;
+	case '/': /* search */
+	case ':': /* command */
+		client.mode = ev.ch == '/' ? MODE_SEARCH: MODE_COMMAND;
 		client.error = 0;
 		client_reset();
-		client.field[0] = ':';
+		client.field[0] = ev.ch;
                 client.field[1] = '\0';
+		break;
+	case 'n': /* next occurence */
+		client_select(1);
+		break;
+	case 'N': /* previous occurence */
+		client_select(-1);
 		break;
 	case 'e':
 		if (SELECTED(view).type == DT_DIR)
@@ -419,7 +464,24 @@ int client_input() {
 		break;
 	case 'c': /* copy */
 		break;
-	case ' ':
+	case 'y': /* copy selection path to clipboard */
+		if (!client.y) {
+			client.y = 1;
+			break;
+		}
+	{
+		char buf[2048];
+		snprintf(V(buf), "echo \"%s/%s\" | xclip -sel clip",
+				view->path, SELECTED(view).name);
+		if (system(buf) && getenv("TMUX")) { /* try tmux if no xclip */
+			snprintf(V(buf), "echo \"%s/%s\" | tmux load-buffer -",
+				view->path, SELECTED(view).name);
+			system(buf);
+		}
+	}
+		client.y = 0;
+		break;
+	case ' ': /* select */
 		TOGGLE(SELECTED(view).selected);
 		break;
 	}

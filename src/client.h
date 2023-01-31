@@ -17,16 +17,25 @@
 #define TABS (client.view->next || client.view->prev)
 #define HEIGHT (TABS ? (client.height - 4) : (client.height - 3))
 
+enum {
+	MODE_NORMAL,
+	MODE_COMMAND,
+	MODE_SEARCH,
+	MODE_VISUAL
+};
+
 struct client {
 	struct view *view;
 	size_t width;
 	size_t height;
 	int counter;
-	int command;
+	int mode;
 	int error;
 	int g;
+	int y;
 	char field[1024];
 	char info[1024];
+	char search[1024];
 };
 extern struct client client;
 
