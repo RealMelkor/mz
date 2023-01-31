@@ -13,6 +13,12 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#ifdef __linux__
+#define _GNU_SOURCE
+#else
+#define _BSD_SOURCE
+#endif
+#include <dirent.h>
 #include <stdlib.h>
 #include "termbox.h"
 #include "view.h"
@@ -21,20 +27,33 @@
 #include "strlcpy.h"
 #include "util.h"
 
+#define TAB_WIDTH_LIMIT 20
+
 struct client client;
 
-static char *fetch_name(struct view *view) {
+static int display_tab(struct view *view, int x) {
 	char *ptr = strrchr(view->path, '/');
-	if (!ptr) return NULL;
-	if (ptr == view->path && *(ptr + 1) == '\0') return ptr;
-	return ptr + 1;
+	size_t length;
+	char buf[1024];
+	if (!ptr) return -1;
+	ptr++;
+	length = AZ(strnlen(ptr, sizeof(view->path) - (ptr - view->path)));
+	if (length > TAB_WIDTH_LIMIT) {
+		length = TAB_WIDTH_LIMIT;
+		strlcpy(buf, ptr, length + 1); /* sizeof buf > length */
+		ptr = buf;
+	}
+	tb_printf(x, 0, TB_DEFAULT,
+		  (client.view == view ? TB_DEFAULT : TB_WHITE), " %s ", ptr);
+	return length + 2;
 }
 
 static int name_length(struct view *view) {
 	char *ptr = strrchr(view->path, '/');
 	if (!ptr) return -1;
 	ptr++;
-	return AZ(strnlen(ptr, sizeof(view->path) - (ptr - view->path)));
+	return MAX(AZ(strnlen(ptr, sizeof(view->path) - (ptr - view->path))),
+		TAB_WIDTH_LIMIT);
 }
 
 int client_init() {
@@ -60,7 +79,6 @@ static void client_tabbar(struct view *view) {
 		start = view;
 		goto draw;
 	}
-	/* if width is less than 0 just draw the current tab */
 
 	ptr = view;
 	if (!ptr->prev) {
@@ -118,11 +136,7 @@ draw:
 	ptr = start;
 	x = 0;
 	while (ptr && x < (signed)client.width) {
-		tb_printf(x, 0,
-			TB_DEFAULT,
-			(ptr == view ? TB_DEFAULT : TB_WHITE),
-			" %s ", fetch_name(ptr));
-		x += name_length(ptr) + 2;
+		x += display_tab(ptr, x);
 		ptr = ptr->next;
 	}
 
@@ -130,7 +144,6 @@ draw:
 		tb_set_cell(x, 0, ' ', TB_DEFAULT, TB_WHITE);
 		x++;
 	}
-	tb_printf(30, 10, TB_DEFAULT, TB_DEFAULT, "%d", width);
 	return;
 }
 
@@ -175,7 +188,10 @@ int client_update() {
 }
 
 static int newtab() {
-	struct view *new = view_init();
+	struct view *new;
+
+	chdir(client.view->path);
+	new = view_init();
 
 	if (!new || file_ls(new)) {
 		snprintf(V(client.info), "%s", strerror(errno));
@@ -211,6 +227,7 @@ static int closetab() {
 		return -1;
 	}
 
+	file_free(view);
 	free(view);
 	return client.view == NULL;
 }
@@ -228,6 +245,13 @@ int parse_command() {
         if ((cmd[0] == 'n' && cmd[1] == 't' && cmd[2] == '\0') ||
 		!strncmp(cmd, "tabnew", sizeof(client.field) - 1))
                 return newtab();
+	if (cmd[0] == '!') {
+		tb_shutdown();
+		system(&cmd[1]);
+		tb_init();
+		file_ls(client.view);
+		return 0;
+	}
 
         snprintf(V(client.info), "Not a command: %s", cmd);
         client.error = 1;
@@ -354,7 +378,7 @@ int client_input() {
 		client_reset();
 		break;
 	case '.':
-		view->showhidden = !view->showhidden;
+		TOGGLE(view->showhidden);
 		file_ls(view);
 		break;
 	case ':':
@@ -365,11 +389,13 @@ int client_input() {
                 client.field[1] = '\0';
 		break;
 	case 'e':
+		if (SELECTED(view).type == DT_DIR)
+			break;
 	{
 		char buf[2048];
 		tb_shutdown();
 		snprintf(V(buf), "$EDITOR \"%s/%s\"",
-				view->path, SELECTED(view));
+				view->path, SELECTED(view).name);
 		system(buf);
 		tb_init();
 	}
@@ -384,6 +410,17 @@ int client_input() {
 			break;
 		}
 		client.g = 1;
+		break;
+	case 'd': /* delete (move to trash) */
+		break;
+	case 'p': /* paste */
+		break;
+	case 'x': /* cut */
+		break;
+	case 'c': /* copy */
+		break;
+	case ' ':
+		TOGGLE(SELECTED(view).selected);
 		break;
 	}
 

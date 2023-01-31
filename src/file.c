@@ -126,6 +126,7 @@ int file_ls(struct view *view) {
 			continue;
 		if (!view->showhidden && entry->d_name[0] == '.')
 			continue;
+		view->entries[i].selected = 0;
 		strlcpy(view->entries[i].name, entry->d_name,
 			sizeof(view->entries[i].name));
 		if (entry->d_type == DT_LNK) {

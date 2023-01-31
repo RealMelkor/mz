@@ -18,7 +18,7 @@
 /* Load an xpm image */
 #define IMAGE(X, Y) backend_load_image(X##_xpm, X##_width, X##_height, \
 				       X##_colors, X##_char, Y)
-#define SELECTED(X) X->entries[X->selected].name
+#define SELECTED(X) X->entries[X->selected]
 
 /* Assign the sum of X and Y to X if the sum is lesser than Z, else assign Z */
 #define ADDMAX(X, Y, Z) X = ((X + Y) > Z ? Z : (X + Y))
@@ -36,3 +36,5 @@
                      (num & 0x0000FF00) | ((num & 0x000000FF) << 16) )
 
 #define INN(X, Y) X ? X : Y /* If not null return X else return Y */
+#define TOGGLE(X) X = !X
+#define MAX(X, Y) X > Y ? Y : X /* if X is greater than Y return Y */
