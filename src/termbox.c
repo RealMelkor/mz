@@ -945,9 +945,13 @@ int tb_init_rwfd(int rfd, int wfd) {
     global.wfd = wfd;
 
     do {
+retry:
         if_err_break(rv, init_term_attrs());
         if_err_break(rv, init_term_caps());
-        if_err_break(rv, init_cap_trie());
+	if (init_cap_trie() != TB_OK && strcmp(getenv("TERM"), "screen")) {
+		setenv("TERM", "screen", 1);
+		goto retry;
+	}
         if_err_break(rv, init_resize_handler());
         if_err_break(rv, send_init_escape_codes());
         if_err_break(rv, send_clear());
@@ -1758,32 +1762,32 @@ static int tb_deinit(void) {
 }
 
 static int load_terminfo(void) {
-    int rv;
-    char tmp[PATH_MAX];
+	int rv;
+	char tmp[PATH_MAX];
 	const char *term, *terminfo, *home, *dirs;
 
-    /* 
-     * See terminfo(5) "Fetching Compiled Descriptions" for a description of
-     * this behavior. Some of these paths are compile-time ncurses options, so
-     * best guesses are used here.
-     */
-    term = getenv("TERM");
-    if (!term) {
-        return TB_ERR;
-    }
+	/*
+	 * See terminfo(5) "Fetching Compiled Descriptions" for a description of
+	 * this behavior. Some of these paths are compile-time ncurses options, so
+	 * best guesses are used here.
+	 */
+	term = getenv("TERM");
+	if (!term) {
+		return TB_ERR;
+	}
 
-    /* If TERMINFO is set, try that directory and stop */
-    terminfo = getenv("TERMINFO");
-    if (terminfo) {
-        return load_terminfo_from_path(terminfo, term);
-    }
+	/* If TERMINFO is set, try that directory and stop */
+	terminfo = getenv("TERMINFO");
+	if (terminfo) {
+		return load_terminfo_from_path(terminfo, term);
+	}
 
-    /* Next try ~/.terminfo */
-    home = getenv("HOME");
-    if (home) {
-        if_err_return(rv, snprintf_(tmp, sizeof(tmp), "%s/.terminfo", home));
-        if_ok_return(rv, load_terminfo_from_path(tmp, term));
-    }
+	/* Next try ~/.terminfo */
+	home = getenv("HOME");
+	if (home) {
+		if_err_return(rv, snprintf_(tmp, sizeof(tmp), "%s/.terminfo", home));
+		if_ok_return(rv, load_terminfo_from_path(tmp, term));
+	}
 
     /*
      * Next try TERMINFO_DIRS
