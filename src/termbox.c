@@ -24,6 +24,10 @@ SOFTWARE.
 */
 /* this file was edited to respect the C89 standard */
 
+#ifdef __OpenBSD__
+#include <signal.h>
+#endif
+
 #ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE
 #endif
@@ -35,7 +39,9 @@ SOFTWARE.
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#ifndef __OpenBSD__
 #include <signal.h>
+#endif
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
