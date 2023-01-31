@@ -28,6 +28,10 @@ SOFTWARE.
 #include <signal.h>
 #endif
 
+#ifdef sun
+#include <stropts.h>
+#endif
+
 #ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE
 #endif

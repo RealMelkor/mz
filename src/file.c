@@ -105,7 +105,6 @@ int file_ls(struct view *view) {
 	if (dp == NULL)
 		return -1;
 
-	/* make a array of entry, sort it */
 	length = 0;
 	while ((entry = readdir(dp))) {
 		if (!view->showhidden && entry->d_name[0] == '.')
@@ -131,14 +130,19 @@ int file_ls(struct view *view) {
 		view->entries[i].selected = 0;
 		strlcpy(view->entries[i].name, entry->d_name,
 			sizeof(view->entries[i].name));
+
+#ifndef sun
 		if (entry->d_type == DT_LNK) {
+#endif
 			struct stat buf;
 			view->entries[i].type =
 				fstatat(view->fd, entry->d_name, &buf, 0);
 			view->entries[i].type = S_ISDIR(buf.st_mode) ?
 				DT_DIR : DT_REG;
+#ifndef sun
 		} else
 			view->entries[i].type = entry->d_type;
+#endif
 		i++;
 	}
 

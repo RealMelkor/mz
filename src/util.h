@@ -38,3 +38,10 @@
 #define INN(X, Y) X ? X : Y /* If not null return X else return Y */
 #define TOGGLE(X) X = !X
 #define MAX(X, Y) X > Y ? Y : X /* if X is greater than Y return Y */
+
+#ifndef DT_REG
+#define DT_REG 0
+#endif
+#ifndef DT_DIR
+#define DT_DIR 1
+#endif
