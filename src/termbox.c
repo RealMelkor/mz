@@ -24,7 +24,15 @@ SOFTWARE.
 */
 /* this file was edited to respect the C89 standard */
 
+#ifdef __OpenBSD__
+#define _BSD_VISIBLE
+#endif
+#include <signal.h>
 #include "termbox.h"
+
+#ifndef IMAXBEL
+#define IMAXBEL 0
+#endif
 
 void cfmakeraw(struct termios *t) {
         t->c_iflag &= ~(IMAXBEL|IGNBRK|BRKINT|PARMRK|
