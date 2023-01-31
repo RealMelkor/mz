@@ -19,7 +19,12 @@
 #define _BSD_SOURCE
 #endif
 #include <dirent.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
 #include "termbox.h"
 #include "view.h"
 #include "client.h"
