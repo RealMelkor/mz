@@ -1,9 +1,9 @@
 SHELL = /bin/sh
 
-PREFIX = /usr/local
-CFLAGS = -ansi -Wall -Wextra -std=c89 -pedantic -O2 -D_POSIX_C_SOURCE=200809L
-CC = cc
-LIBS = -s -lm
+CC=cc
+PREFIX=/usr/local
+CFLAGS=-ansi -Wall -Wextra -std=c89 -pedantic -O2
+LIBS=-s -lm
 
 build: src/*
 	${CC} ${CFLAGS} src/main.c src/file.c src/strlcpy.c \

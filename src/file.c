@@ -24,7 +24,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
-#include <termbox.h>
+#include "termbox.h"
 #include "view.h"
 #include "file.h"
 #include "strlcpy.h"
