@@ -91,7 +91,8 @@ void view_draw(struct view *view) {
 		else if (e->type != DT_REG)
 			fg = TB_MAGENTA;
 		
-		tb_print(0, i + start, fg, bg, e->name);
+		tb_print(0, i + start, fg,
+			e->selected ? TB_CYAN : bg, e->name);
 		if (e->type == DT_DIR) {
 			tb_set_cell(strlen(e->name), i + start, '/', fg, bg);
 		}

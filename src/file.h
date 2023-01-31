@@ -17,6 +17,7 @@
 struct entry {
 	char name[1024];
 	int type;
+	int selected;
 };
 
 int file_init(struct view* view);
@@ -24,3 +25,4 @@ int file_ls(struct view *view);
 int file_cd(struct view *view, const char *path);
 int file_up(struct view *view);
 int file_select(struct view *view, const char *path);
+void file_free(struct view *view);
