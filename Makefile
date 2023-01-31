@@ -5,6 +5,10 @@ PREFIX=/usr/local
 CFLAGS=-ansi -Wall -Wextra -std=c89 -pedantic -O2
 LIBS=-s -lm
 
+# uncomment to build on Illumos
+#CFLAGS=-Wall -Wextra -pedantic -O2 -Wformat-truncation=0
+#CC=gcc
+
 build: src/*
 	${CC} ${CFLAGS} src/main.c src/file.c src/strlcpy.c \
 	src/view.c src/client.c src/termbox.c \
