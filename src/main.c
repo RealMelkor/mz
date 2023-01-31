@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
-#include <termbox.h>
+#include "termbox.h"
 #include "util.h"
 #include "client.h"
 #include "view.h"
