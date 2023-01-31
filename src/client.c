@@ -43,7 +43,7 @@ static int display_tab(struct view *view, int x) {
 		strlcpy(buf, ptr, length + 1); /* sizeof buf > length */
 		ptr = buf;
 	}
-	tb_printf(x, 0, TB_DEFAULT,
+	tb_printf(x, 0, (client.view == view ? TB_DEFAULT : TB_BLACK),
 		  (client.view == view ? TB_DEFAULT : TB_WHITE), " %s ", ptr);
 	return length + 2;
 }
