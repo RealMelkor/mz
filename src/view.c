@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdint.h>
 #include "termbox.h"
 #include "client.h"
 #include "view.h"
