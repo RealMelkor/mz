@@ -64,7 +64,7 @@ static int name_length(struct view *view) {
 }
 
 int client_init() {
-	client.view = view_init();
+	client.view = view_init(getenv("PWD"));
 	if (!client.view || file_ls(client.view)) return -1;
 	if (tb_init()) return -1;
 	client.width = tb_width();
@@ -198,7 +198,7 @@ static int newtab() {
 	struct view *new;
 
 	chdir(client.view->path);
-	new = view_init();
+	new = view_init(client.view->path);
 
 	if (!new || file_ls(new)) {
 		snprintf(V(client.info), "%s", strerror(errno));

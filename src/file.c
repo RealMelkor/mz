@@ -33,10 +33,13 @@
 #include "client.h"
 #include "util.h"
 
-int file_init(struct view *view) {
+int file_init(struct view *view, const char* path) {
 
 	PZERO(view);
-	if (view->path != getcwd(V(view->path)))
+
+	if (path)
+		sstrcpy(view->path, path);
+	else if (view->path != getcwd(V(view->path)))
 		return -1;
 
 	view->fd = open(view->path, O_DIRECTORY);
@@ -51,12 +54,41 @@ int file_up(struct view *view) {
 }
 
 int file_cd(struct view *view, const char *path) {
-	int fd = openat(view->fd, path, O_DIRECTORY);
+
+	char buf[PATH_MAX];
+	int fd, len, back;
+
+	if (!strcmp(path, ".")) return 0;
+
+	len = sstrcpy(buf, view->path);
+	if (!strcmp(path, "..")) {
+		if (!strcmp(view->path, "/")) {
+			return 0;
+		}
+		len--;
+		while (len >= 0) {
+			if (buf[len] == '/') {
+				buf[AZ(len)] = '\0';
+				back = 1;
+				break;
+			}
+			len--;
+		}
+		if (!back) return 0;
+	} else {
+		if (buf[AZ(len) - 1] != '/') {
+			buf[len] = '/';
+			len++;
+		}
+		strlcpy(&buf[len], path, sizeof(buf) - len);
+	}
+
+	fd = open(buf, O_DIRECTORY);
 	if (fd < 0) return -1;
 	close(view->fd);
 	view->fd = fd;
 	fchdir(fd);
-	getcwd(V(view->path));
+	sstrcpy(view->path, buf);
 	view->selected = 0;
 	return 0;
 }
