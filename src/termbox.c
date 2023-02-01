@@ -1214,7 +1214,7 @@ int tb_print_ex(int x, int y, uintattr_t fg, uintattr_t bg, size_t *out_w,
     while (*str) {
         str += tb_utf8_char_to_unicode(&uni, str);
         w = mk_wcwidth((wchar_t)uni);
-        if (w < 0) {
+        if (w <= 0) {
             w = 1;
         }
         if (w == 0 && x > ix) {

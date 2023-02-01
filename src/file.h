@@ -20,7 +20,7 @@ struct entry {
 	int selected;
 };
 
-int file_init(struct view* view);
+int file_init(struct view* view, const char *path);
 int file_ls(struct view *view);
 int file_cd(struct view *view, const char *path);
 int file_up(struct view *view);

@@ -33,9 +33,9 @@
 #include "strlcpy.h"
 #include "utf8.h"
 
-struct view *view_init() {
+struct view *view_init(const char *path) {
 	struct view *view = malloc(sizeof(struct view));
-	file_init(view);
+	file_init(view, path);
 	return view;
 }
 

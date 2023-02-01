@@ -27,7 +27,7 @@ struct view {
 	struct view *prev;
 };
 
-struct view *view_init();
+struct view *view_init(const char *path);
 void view_open(struct view *view);
 void view_draw(struct view *view);
 void view_select(struct view *view, const char *name);
