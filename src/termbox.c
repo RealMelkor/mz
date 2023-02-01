@@ -60,6 +60,7 @@ SOFTWARE.
 #include <unistd.h>
 #include <wchar.h>
 #include "termbox.h"
+#include "wcwidth.h"
 
 #ifndef IMAXBEL
 #define IMAXBEL 0
@@ -1020,7 +1021,7 @@ int tb_present(void) {
                 else
 #endif
                     /* wcwidth() simply returns -1 on overflow of wchar_t */
-                    w = wcwidth((wchar_t)back->ch);
+                    w = mk_wcwidth((wchar_t)back->ch);
             }
             if (w < 1) {
                 w = 1;
@@ -1212,7 +1213,7 @@ int tb_print_ex(int x, int y, uintattr_t fg, uintattr_t bg, size_t *out_w,
     }
     while (*str) {
         str += tb_utf8_char_to_unicode(&uni, str);
-        w = wcwidth((wchar_t)uni);
+        w = mk_wcwidth((wchar_t)uni);
         if (w < 0) {
             w = 1;
         }

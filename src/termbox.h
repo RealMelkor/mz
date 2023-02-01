@@ -26,8 +26,6 @@ SOFTWARE.
 #ifndef __TERMBOX_H
 #define __TERMBOX_H
 
-int wcwidth(wchar_t ucs);
-
 /* __ffi_start */
 
 #define TB_VERSION_STR "2.1.0-dev"

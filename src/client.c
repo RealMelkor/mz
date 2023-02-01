@@ -30,6 +30,8 @@
 #include "client.h"
 #include "file.h"
 #include "strlcpy.h"
+#include "wcwidth.h"
+#include "utf8.h"
 #include "util.h"
 
 #define TAB_WIDTH_LIMIT 20
@@ -42,7 +44,7 @@ static int display_tab(struct view *view, int x) {
 	char buf[1024];
 	if (!ptr) return -1;
 	ptr++;
-	length = AZ(strnlen(ptr, sizeof(view->path) - (ptr - view->path)));
+	length = AZ(utf8_width(ptr, sizeof(view->path) - (ptr - view->path)));
 	if (length > TAB_WIDTH_LIMIT) {
 		length = TAB_WIDTH_LIMIT;
 		strlcpy(buf, ptr, length + 1); /* sizeof buf > length */
@@ -57,7 +59,7 @@ static int name_length(struct view *view) {
 	char *ptr = strrchr(view->path, '/');
 	if (!ptr) return -1;
 	ptr++;
-	return MAX(AZ(strnlen(ptr, sizeof(view->path) - (ptr - view->path))),
+	return MAX(AZ(utf8_width(ptr, sizeof(view->path) - (ptr - view->path))),
 		TAB_WIDTH_LIMIT);
 }
 
@@ -302,11 +304,13 @@ int client_command(struct tb_event ev) {
                 return 0;
         case TB_KEY_BACKSPACE2:
         case TB_KEY_BACKSPACE:
-                pos = strnlen(V(client.field));
+                pos = utf8_len(V(client.field));
                 if (pos > 1)
-                        client.field[pos - 1] = '\0';
-                else
+                        client.field[pos - utf8_last_len(V(client.field))] = 0;
+                else {
                         client.mode = MODE_NORMAL;
+			client.field[0] = '\0';
+		}
                 return 0;
         case TB_KEY_ENTER:
 		pos = 0;
@@ -319,9 +323,9 @@ int client_command(struct tb_event ev) {
 
         if (!ev.ch) return 0;
 
-        pos = strnlen(client.field, sizeof(client.field) - 2);
-        client.field[pos] = ev.ch;
-        client.field[pos + 1] = '\0';
+        pos = utf8_len(client.field, sizeof(client.field) - 2);
+	pos += tb_utf8_unicode_to_char(&client.field[pos], ev.ch);
+        client.field[pos] = '\0';
 	if (client.mode == MODE_SEARCH) {
 		strlcpy(client.search, &client.field[1],
 			sizeof(client.search) - 2);
@@ -476,8 +480,9 @@ open:
 		}
 	{
 		char buf[2048];
-		snprintf(V(buf), "echo \"%s/%s\" | xclip -sel clip",
-				view->path, SELECTED(view).name);
+		snprintf(V(buf),
+			"echo \"%s/%s\" | xclip -sel clip 2>/dev/null",
+			view->path, SELECTED(view).name);
 		if (system(buf) && getenv("TMUX")) { /* try tmux if no xclip */
 			snprintf(V(buf), "echo \"%s/%s\" | tmux load-buffer -",
 				view->path, SELECTED(view).name);
