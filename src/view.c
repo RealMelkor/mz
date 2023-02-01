@@ -31,6 +31,7 @@
 #include "file.h"
 #include "util.h"
 #include "strlcpy.h"
+#include "utf8.h"
 
 struct view *view_init() {
 	struct view *view = malloc(sizeof(struct view));
@@ -95,7 +96,8 @@ void view_draw(struct view *view) {
 		tb_print(0, i + start, fg,
 			e->selected ? TB_CYAN : bg, e->name);
 		if (e->type == DT_DIR) {
-			tb_set_cell(strlen(e->name), i + start, '/', fg, bg);
+			tb_set_cell(utf8_width(e->name, PATH_MAX), i + start,
+					'/', fg, bg);
 		}
 		i++;
 	}
