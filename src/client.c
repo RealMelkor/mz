@@ -511,6 +511,8 @@ open:
 		}
 	}
 		file_ls(view);
+		if (view->selected > view->length)
+			view->selected = view->length - 1;
 		break;
 	case 'p': /* paste */
 		if (!client.copy_length) break;
@@ -527,6 +529,7 @@ open:
 		free(client.copy);
 		client.copy = NULL;
 		client.copy_length = 0;
+		file_ls(view);
 		file_reload(view);
 		break;
 	case 'x': /* cut */

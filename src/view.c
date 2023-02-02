@@ -91,15 +91,17 @@ void view_draw(struct view *view) {
 		e = &view->entries[i + view->scroll];
 		if (selected) {
 			fg = TB_WHITE;
-			bg = TB_BLUE;
+			bg = TB_CYAN;
 		}
 		if (e->type == DT_DIR)
-			fg = TB_CYAN;
-		else if (e->type != DT_REG)
-			fg = TB_MAGENTA;
-		
-		tb_print(0, i + start, fg,
-			e->selected ? TB_CYAN : bg, e->name);
+			fg = selected ? TB_BLACK : TB_CYAN;
+		if (e->selected)
+			bg = TB_CYAN;
+		if (e->selected && fg == TB_CYAN)
+			fg = TB_WHITE;
+		if (e->selected && selected)
+			fg = TB_BLACK;
+		tb_print(0, i + start, fg, bg, e->name);
 		if (e->type == DT_DIR) {
 			tb_set_cell(utf8_width(e->name, PATH_MAX), i + start,
 					'/', fg, bg);
