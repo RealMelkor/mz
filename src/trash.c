@@ -23,24 +23,105 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
+#include <pwd.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <fts.h>
 #include "trash.h"
 #include "client.h"
 #include "strlcpy.h"
 #include "util.h"
+#include <stdint.h>
+#include "termbox.h"
 
-int trash_init() {
-	char *env;
-	int home, trash;
+int recursive_delete(const char *dir) {
 
-	env = getenv("HOME");
-	if (!env) {
-		printf("home folder not found\n");
-		return -1;
+	int ret;
+	FTS *ftsp;
+	FTSENT *curr;
+	char *files[2];
+
+	files[0] = (char*)dir;
+	files[1] = NULL;
+
+	ftsp = fts_open(files, FTS_NOCHDIR | FTS_PHYSICAL | FTS_XDEV, NULL);
+	if (!ftsp) {
+		ret = -1;
+		goto clear;
 	}
 
-	home = open(env, O_DIRECTORY);
+	ret = 0;
+	while ((curr = fts_read(ftsp))) {
+		switch (curr->fts_info) {
+		case FTS_NS:
+		case FTS_DNR:
+		case FTS_ERR:
+			break;
+		case FTS_DC:
+		case FTS_DOT:
+		case FTS_NSOK:
+			break;
+		case FTS_D:
+			break;
+		case FTS_DP:
+		case FTS_F:
+		case FTS_SL:
+		case FTS_SLNONE:
+		case FTS_DEFAULT:
+			if (remove(curr->fts_accpath) < 0)
+				ret = -1;
+			break;
+		}
+	}
+
+clear:
+	if (ftsp)
+		fts_close(ftsp);
+
+	return ret;
+}
+
+static int gethome(char *buf, size_t length) {
+
+        struct passwd *pw;
+	char *home;
+	int fd;
+
+	home = getenv("HOME");
+	if (home) {
+		fd = open(home, O_DIRECTORY);
+		if (fd > -1) {
+			close(fd);
+			return strlcpy(buf, home, length);
+		}
+	}
+
+	pw = getpwuid(geteuid());
+        if (!pw) return -1;
+        fd = open(pw->pw_dir, O_DIRECTORY);
+	if (fd < 0) {
+		close(fd);
+		return -1;
+	}
+        return strlcpy(buf, pw->pw_dir, length);
+}
+
+static int trash_path(char *path, size_t length) {
+	int len = gethome(path, length);
+	if (len == -1) return -1;
+
+	strlcpy(&path[length], "/.trash", sizeof(path) - length);
+	return 0;
+}
+
+int trash_init() {
+	char path[PATH_MAX];
+	int home, trash;
+
+	if (gethome(V(path)) == -1) return -1;
+
+	home = open(path, O_DIRECTORY);
 	if (home < 0) goto fail;
 
 	trash = openat(home, ".trash", O_DIRECTORY);
@@ -58,7 +139,6 @@ int trash_init() {
 fail:
 	if (home > -1)
 		close(home);
-	printf("%s\n", strerror(errno));
 	return -1;
 }
 
@@ -96,4 +176,18 @@ int trash_send(int fd, char *path, char *name) {
 	close(info);
 
 	return -len;
+}
+
+int trash_clear() {
+
+	char path[PATH_MAX];
+
+	if (trash_path(V(path))) return -1;
+	if (recursive_delete(path)) return -1;
+
+	close(client.trash);
+	client.trash = trash_init();
+	if (client.trash < 0) return -1;
+
+	return 0;
 }
