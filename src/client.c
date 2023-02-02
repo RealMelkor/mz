@@ -255,13 +255,13 @@ static int closetab() {
 		view->next->prev = view->prev;
 		client.view = view->next;
 	}
-	if (client.view && file_ls(client.view)) {
-		display_errno();
-		return -1;
-	}
+	if (client.view && client.view->fd != TRASH_FD &&
+		file_ls(client.view)) display_errno();
 
-	close(view->fd);
+	if (view->fd > 0)
+		close(view->fd);
 	file_free(view);
+	free(view->other);
 	free(view);
 	return client.view == NULL;
 }
