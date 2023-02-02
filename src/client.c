@@ -47,8 +47,8 @@ static int display_tab(struct view *view, int x) {
 	char *ptr = strrchr(view->path, '/');
 	size_t length;
 	char buf[1024];
-	if (!ptr) return -1;
-	ptr++;
+	if (!ptr) ptr = view->path;
+	else ptr++;
 	length = AZ(utf8_width(ptr, sizeof(view->path) - (ptr - view->path)));
 	if (length > TAB_WIDTH_LIMIT) {
 		length = TAB_WIDTH_LIMIT;
@@ -64,7 +64,8 @@ static int name_length(struct view *view) {
 	char *ptr = strrchr(view->path, '/');
 	if (!ptr) return -1;
 	ptr++;
-	return MAX(AZ(utf8_width(ptr, sizeof(view->path) - (ptr - view->path))),
+	return MAX(AZ(
+		utf8_width(ptr, sizeof(view->path) - (ptr - view->path))),
 		TAB_WIDTH_LIMIT);
 }
 
@@ -208,16 +209,7 @@ int client_update() {
         return 0;
 }
 
-static int newtab() {
-	struct view *new;
-
-	chdir(client.view->path);
-	new = view_init(client.view->path);
-
-	if (!new || file_ls(new)) {
-		display_errno();
-		return -1;
-	}
+static void addtab(struct view *new) {
 	if (client.view->next) {
 		new->next = client.view->next;
 		client.view->next->prev = new;
@@ -226,6 +218,26 @@ static int newtab() {
 	client.view->next = new;
 	new->selected = client.view->selected;
 	client.view = client.view->next;
+}
+
+static int newtab() {
+	struct view *new;
+	char *path;
+
+	path = client.view->path;
+	if (client.view->fd == TRASH_FD)
+		path = NULL;
+
+	if (path)
+		chdir(path);
+	new = view_init(path);
+
+	if (!new || file_ls(new)) {
+		display_errno();
+		return -1;
+	}
+	addtab(new);
+
 	return 0;
 }
 
@@ -279,6 +291,12 @@ int parse_command() {
 		system("$SHELL");
 		tb_init();
 		file_ls(client.view);
+		return 0;
+	}
+	if (!strncmp(cmd, "trash", sizeof(client.field) - 1)) {
+		struct view *v = malloc(sizeof(struct view));
+		if (!v || trash_view(v)) display_errno();
+		else addtab(v);
 		return 0;
 	}
 	if (!strncmp(cmd, "trash clear", sizeof(client.field) - 1)) {
@@ -352,14 +370,6 @@ int client_command(struct tb_event ev) {
 	}
 
         return 0;
-}
-
-void client_unselect(struct view *view) {
-	size_t i = 0;
-	while (i < view->length) {
-		view->entries[i].selected = 0;
-		i++;
-	}
 }
 
 void client_reset() {
@@ -493,21 +503,24 @@ open:
 		}
 		client.g = 1;
 		break;
+	case 'r': /* restore */
+		if (view->fd != TRASH_FD) break;
+		if (trash_restore(view)) display_errno();
+		if (trash_refresh(view)) display_errno();
+		break;
 	case 'd': /* delete (move to trash) */
 	{
 		size_t i = 0;
 		while (i < view->length) {
-			if (!view->entries[i].selected) {
-				i++;
-				continue;
-			}
+			size_t j = i++;
+			if (!view->entries[j].selected) continue;
 			if (trash_send(view->fd, view->path,
-					view->entries[i].name)) {
+					view->entries[j].name)) {
 				display_errno();
+				view_unselect(view);
 				break;
 			}
-			view->entries[i].selected = 0;
-			i++;
+			view->entries[j].selected = 0;
 		}
 	}
 		file_ls(view);
@@ -519,10 +532,8 @@ open:
 		i = 0;
 		while (i < client.copy_length) {
 			if (client.cut ? file_move(view, &client.copy[i]) :
-					file_copy(view, &client.copy[i])) {
+					file_copy(view, &client.copy[i]))
 				display_errno();
-				break;
-			}
 			i++;
 		}
 		free(client.copy);

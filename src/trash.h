@@ -13,6 +13,12 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+
+#define TRASH_FD -11
+
 int trash_init();
 int trash_send(int fd, char *path, char *name);
+int trash_view(struct view* view);
+int trash_restore(struct view *view);
+int trash_refresh(struct view *view);
 int trash_clear();

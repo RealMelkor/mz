@@ -25,9 +25,11 @@ struct view {
 	int size;
 	struct view *next;
 	struct view *prev;
+	void *other; /* custom data for non-regular views */
 };
 
 struct view *view_init(const char *path);
 void view_open(struct view *view);
 void view_draw(struct view *view);
 void view_select(struct view *view, const char *name);
+void view_unselect(struct view *view);
