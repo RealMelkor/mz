@@ -13,38 +13,5 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-
-#define TABS (client.view->next || client.view->prev)
-#define HEIGHT (TABS ? (client.height - 4) : (client.height - 3))
-
-enum {
-	MODE_NORMAL,
-	MODE_COMMAND,
-	MODE_SEARCH,
-	MODE_VISUAL
-};
-
-struct client {
-	struct view *view;
-	struct entry *copy;
-	char copy_path[1024];
-	size_t copy_length;
-	size_t width;
-	size_t height;
-	int counter;
-	int mode;
-	int error;
-	int g;
-	int y;
-	int trash;
-	int cut;
-	char field[1024];
-	char info[1024];
-	char search[1024];
-};
-extern struct client client;
-
-int client_init();
-int client_clean();
-int client_update();
-int client_input();
+int trash_init();
+int trash_send(int fd, char *path, char *name);

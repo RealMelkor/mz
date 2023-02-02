@@ -40,7 +40,12 @@ struct view *view_init(const char *path) {
 }
 
 void view_open(struct view *view) {
+
 	char buf[2048];
+
+	if (view->length < 1)
+		return;
+
 	client.error = 0;
 	switch (view->entries[view->selected].type) {
 	case DT_REG:

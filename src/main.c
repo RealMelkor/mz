@@ -15,6 +15,8 @@
  */
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 #include <errno.h>
 #include <string.h>
 #include <stdint.h>
@@ -28,6 +30,8 @@
 int main(int argc, char *argv[]) {
 
 	if (argc < 1) return -1;
+
+	srand(time(NULL));
 
 	if (client_init()) {
 		printf("%s: %s\n", argv[0], strerror(errno));

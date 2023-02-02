@@ -10,8 +10,8 @@ LIBS=-s -lm
 #CC=gcc
 
 build: src/*
-	${CC} ${CFLAGS} src/main.c src/file.c src/strlcpy.c \
-	src/view.c src/client.c src/termbox.c \
+	${CC} ${CFLAGS} src/main.c src/file.c src/strlcpy.c src/trash.c \
+	src/view.c src/client.c src/termbox.c src/wcwidth.c src/utf8.c \
 	${INCLUDES} ${LIBSPATH} \
 	-o mz ${LIBS} 
 

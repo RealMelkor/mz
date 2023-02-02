@@ -18,7 +18,6 @@
 #else
 #define _BSD_SOURCE
 #endif
-#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -32,6 +31,7 @@
 #include "strlcpy.h"
 #include "wcwidth.h"
 #include "utf8.h"
+#include "trash.h"
 #include "util.h"
 
 #define TAB_WIDTH_LIMIT 20
@@ -64,15 +64,32 @@ static int name_length(struct view *view) {
 }
 
 int client_init() {
+
+	char *env;
+
+	PZERO(&client);
+
 	client.view = view_init(getenv("PWD"));
 	if (!client.view || file_ls(client.view)) return -1;
+
+	env = getenv("HOME");
+	if (!env) {
+		printf("home folder not found\n");
+		return -1;
+	}
+
+	client.trash = trash_init();
+	if (client.trash < 0) return -1;
+
 	if (tb_init()) return -1;
 	client.width = tb_width();
 	client.height = tb_height();
+
 	return 0;
 }
 
 int client_clean() {
+	free(client.copy);
 	free(client.view);
 	return tb_shutdown();
 }
@@ -234,6 +251,7 @@ static int closetab() {
 		return -1;
 	}
 
+	close(view->fd);
 	file_free(view);
 	free(view);
 	return client.view == NULL;
@@ -335,6 +353,14 @@ int client_command(struct tb_event ev) {
         return 0;
 }
 
+void client_unselect(struct view *view) {
+	size_t i = 0;
+	while (i < view->length) {
+		view->entries[i].selected = 0;
+		i++;
+	}
+}
+
 void client_reset() {
 	client.counter = client.g = client.y = 0;
 }
@@ -342,6 +368,7 @@ void client_reset() {
 int client_input() {
 	struct tb_event ev;
 	struct view *view = client.view;
+	size_t i = 0;
 	int ret;
 
 	ret = tb_poll_event(&ev);
@@ -466,12 +493,66 @@ open:
 		client.g = 1;
 		break;
 	case 'd': /* delete (move to trash) */
+	{
+		size_t i = 0;
+		while (i < view->length) {
+			if (!view->entries[i].selected) {
+				i++;
+				continue;
+			}
+			if (trash_send(view->fd, view->path,
+					view->entries[i].name)) {
+				client.error = 1;
+				sstrcpy(client.info, strerror(errno));
+				break;
+			}
+			view->entries[i].selected = 0;
+			i++;
+		}
+	}
+		file_ls(view);
 		break;
 	case 'p': /* paste */
+		if (!client.copy_length) break;
+		i = 0;
+		while (i < client.copy_length) {
+			if (client.cut ? file_move(view, &client.copy[i]) :
+					file_copy(view, &client.copy[i])) {
+				client.error = 1;
+				sstrcpy(client.info, strerror(errno));
+				break;
+			}
+			i++;
+		}
+		free(client.copy);
+		client.copy = NULL;
+		client.copy_length = 0;
+		file_reload(view);
 		break;
 	case 'x': /* cut */
-		break;
 	case 'c': /* copy */
+	{
+		size_t i = 0, j = 0, length = 0;
+		while (i < view->length) {
+			if (view->entries[i].selected) length++;
+			i++;
+		}
+		if (!length) break;
+		free(client.copy);
+		client.copy = malloc(sizeof(struct entry) * length);
+		sstrcpy(client.copy_path, view->path);
+		client.copy_length = length;
+		i = 0;
+		while (i < view->length) {
+			if (view->entries[i].selected) {
+				client.copy[j] = view->entries[i];
+				view->entries[i].selected = 0;
+				j++;
+			}
+			i++;
+		}
+		client.cut = ev.ch == 'x';
+	}
 		break;
 	case 'y': /* copy selection path to clipboard */
 		if (!client.y) {
