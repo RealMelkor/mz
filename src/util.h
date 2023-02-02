@@ -42,6 +42,11 @@
 #ifndef DT_REG
 #define DT_REG 0
 #endif
+
 #ifndef DT_DIR
 #define DT_DIR 1
+#endif
+
+#ifndef PATH_MAX
+#define PATH_MAX 1024
 #endif

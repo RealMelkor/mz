@@ -29,7 +29,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/stat.h>
-#include <sys/sendfile.h>
+#include <sys/types.h>
 #include "termbox.h"
 #include "view.h"
 #include "file.h"
@@ -65,6 +65,7 @@ int file_cd(struct view *view, const char *path) {
 	if (!strcmp(path, ".")) return 0;
 
 	len = sstrcpy(buf, view->path);
+	back = 0;
 	if (!strcmp(path, "..")) {
 		if (!strcmp(view->path, "/")) {
 			return 0;
@@ -238,7 +239,7 @@ int file_copy(struct view *view, struct entry *entry) {
 
 	struct stat st;
 	int fd, dstfd, srcfd;
-	off64_t ret, length;
+	size_t length, ret;
 
 	fd = openat(view->fd, entry->name, 0);
 	if (fd > -1) {
@@ -261,14 +262,21 @@ int file_copy(struct view *view, struct entry *entry) {
 	dstfd = openat(view->fd, entry->name, O_WRONLY|O_CREAT, st.st_mode);
 	if (dstfd < 0) return -1;
 
-	length = lseek64(srcfd, 0, SEEK_END);
-	if (length == (off64_t)-1 ||
-			lseek64(srcfd, 0, SEEK_SET) == (off64_t)-1) {
+	length = lseek(srcfd, 0, SEEK_END);
+	if (length == (size_t)-1 ||
+			lseek(srcfd, 0, SEEK_SET) == (off_t)-1) {
 		close(dstfd);
 		close(srcfd);
 		return -1;
 	}
-	ret = sendfile(dstfd, srcfd, NULL, length);
+
+	ret = 0;
+	while (1) {
+		ssize_t i = copy_file_range(srcfd, 0, dstfd, 0, length, 0);
+		if (i <= 0) break;
+		ret += i;
+	}
+
 	close(dstfd);
 	close(srcfd);
 	if (ret != length) return -1;
