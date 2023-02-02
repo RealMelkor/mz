@@ -224,7 +224,8 @@ int trash_restore(struct view *view) {
 		int fd;
 
 		if (!view->entries[j].selected) continue;
-		sstrcpy(id, &((char*)view->other)[j * ID_LENGTH]);
+		memcpy(id, &((char*)view->other)[j * ID_LENGTH], ID_LENGTH);
+		id[ID_LENGTH] = '\0';
 		snprintf(V(src), "%s/%s", path, id);
 
 		/* check if file exist before using rename */
@@ -284,6 +285,9 @@ int trash_refresh(struct view *view) {
 		write(fd, &c, 1);
 	}
 	close(fd);
+
+	free(view->other);
+	free(view->entries);
 
 	next = view->next;
 	prev = view->prev;
