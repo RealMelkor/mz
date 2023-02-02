@@ -111,7 +111,7 @@ static int trash_path(char *path, size_t length) {
 	int len = gethome(path, length);
 	if (len == -1) return -1;
 
-	strlcpy(&path[length], "/.trash", sizeof(path) - length);
+	strlcpy(&path[len], "/.trash", sizeof(path) - length);
 	return 0;
 }
 
