@@ -240,6 +240,10 @@ int file_move(struct view *view, struct entry *entry) {
 #define off_t off64_t
 #endif
 
+#if !defined(__linux__) && !defined(__FreeBSD__)
+#define NO_COPY_FILE_RANGE
+#endif
+
 int file_copy(struct view *view, struct entry *entry) {
 
 	struct stat st;
@@ -277,8 +281,16 @@ int file_copy(struct view *view, struct entry *entry) {
 
 	ret = 0;
 	while (1) {
-		ssize_t i = copy_file_range(srcfd, 0, dstfd, 0, length, 0);
+		size_t i;
+#ifdef NO_COPY_FILE_RANGE
+		char buf[4096];
+		i = read(srcfd, buf, sizeof(buf));
 		if (i <= 0) break;
+		write(dstfd, buf, i);
+#else
+		i = copy_file_range(srcfd, 0, dstfd, 0, length, 0);
+		if (i <= 0) break;
+#endif
 		ret += i;
 	}
 
