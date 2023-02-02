@@ -119,3 +119,11 @@ void view_select(struct view *view, const char *name) {
 		view->scroll = view->selected - HEIGHT / 2;
 	}
 }
+
+void view_unselect(struct view *view) {
+	size_t i = 0;
+	while (i < view->length) {
+		view->entries[i].selected = 0;
+		i++;
+	}
+}

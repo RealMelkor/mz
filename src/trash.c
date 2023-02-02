@@ -28,12 +28,15 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fts.h>
-#include "trash.h"
 #include "client.h"
 #include "strlcpy.h"
+#include "file.h"
+#include "view.h"
+#include "trash.h"
 #include "util.h"
-#include <stdint.h>
-#include "termbox.h"
+
+#define TRASH "/.trash"
+#define ID_LENGTH 32
 
 int recursive_delete(const char *dir) {
 
@@ -46,10 +49,8 @@ int recursive_delete(const char *dir) {
 	files[1] = NULL;
 
 	ftsp = fts_open(files, FTS_NOCHDIR | FTS_PHYSICAL | FTS_XDEV, NULL);
-	if (!ftsp) {
-		ret = -1;
-		goto clear;
-	}
+	if (!ftsp)
+		return -1;
 
 	ret = 0;
 	while ((curr = fts_read(ftsp))) {
@@ -75,9 +76,7 @@ int recursive_delete(const char *dir) {
 		}
 	}
 
-clear:
-	if (ftsp)
-		fts_close(ftsp);
+	fts_close(ftsp);
 
 	return ret;
 }
@@ -108,11 +107,22 @@ static int gethome(char *buf, size_t length) {
 }
 
 static int trash_path(char *path, size_t length) {
-	int len = gethome(path, length);
-	if (len == -1) return -1;
 
-	strlcpy(&path[len], "/.trash", sizeof(path) - length);
+	char buf[1024];
+
+	int len = gethome(buf, length);
+	if (len == -1 || len + sizeof(TRASH) >= length) goto clean;
+
+	len = strlcpy(path, buf, length);
+	strlcpy(&path[len], TRASH, sizeof(path) - length);
+
+	if (!strncmp(path, buf, length)) goto clean;
+
 	return 0;
+clean: /* make sure we're not deleting a whole folder by accident */
+	memset(path, 0, length);
+	strlcpy(path, "/nonexistent/folder", sizeof(path));
+	return -1;
 }
 
 int trash_init() {
@@ -144,7 +154,7 @@ fail:
 
 int trash_send(int fd, char *path, char *name) {
 
-	char buf[1024], id[32];
+	char buf[PATH_MAX * 2], id[ID_LENGTH + 1];
 	int info, len;
 
 	info = openat(client.trash, "info", O_WRONLY|O_CREAT|O_APPEND, 0700);
@@ -190,4 +200,167 @@ int trash_clear() {
 	if (client.trash < 0) return -1;
 
 	return 0;
+}
+
+int trash_restore(struct view *view) {
+
+	size_t i;
+	char path[PATH_MAX];
+	int error = 0;
+
+	if (view->fd != TRASH_FD) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (trash_path(V(path))) return -1;
+
+	i = 0;
+	while (i < view->length) {
+
+		char src[PATH_MAX];
+		char id[ID_LENGTH + 1];
+		size_t j = i++;
+		int fd;
+
+		if (!view->entries[j].selected) continue;
+		sstrcpy(id, &((char*)view->other)[j * ID_LENGTH]);
+		snprintf(V(src), "%s/%s", path, id);
+
+		/* check if file exist before using rename */
+		fd = open(view->entries[j].name, 0);
+		if (fd > -1) {
+			close(fd);
+			errno = EEXIST;
+			error = -1;
+			continue;
+		}
+
+		if (rename(src, view->entries[j].name)) return -1;
+		view->entries[j].selected = -1;
+	}
+	return error;
+}
+
+int trash_refresh(struct view *view) {
+
+	void *next, *prev;
+	size_t i;
+	int fd, rewrite;
+
+	i = 0;
+	rewrite = 0;
+	while (i < view->length) {
+		switch (view->entries[i].selected) {
+		case -1:
+			rewrite = 1;
+			break;
+		case 1:
+			view->entries[i].selected = 0;
+			break;
+		}
+		i++;
+	}
+	if (!rewrite) return 0;
+
+	/* rewrite info file */
+	fd = openat(client.trash, "info", O_CREAT|O_WRONLY|O_TRUNC);
+	if (!fd) return -1;
+
+	i = 0;
+	while (i < view->length) {
+
+		char c;
+		size_t j = i++;
+
+		if (view->entries[j].selected == -1) continue;
+
+		write(fd, &((char*)view->other)[j * ID_LENGTH], ID_LENGTH);
+		c = ' ';
+		write(fd, &c, 1);
+		write(fd, view->entries[j].name,
+			strnlen(V(view->entries[j].name)));
+		c = '\n';
+		write(fd, &c, 1);
+	}
+	close(fd);
+
+	next = view->next;
+	prev = view->prev;
+	trash_view(view);
+	view->next = next;
+	view->prev = prev;
+
+	return 0;
+}
+
+int trash_view(struct view* view) {
+
+	int fd;
+	size_t i;
+	char buf[PATH_MAX * 2];
+
+	PZERO(view);
+	sstrcpy(view->path, "Trash");
+	view->fd = TRASH_FD;
+
+	fd = openat(client.trash, "info", O_RDONLY);
+	if (fd < 0) return 0;
+
+	i = 0;
+	while (i < sizeof(buf)) {
+
+		void *ptr;
+		char id[ID_LENGTH];
+		char c;
+		size_t j;
+
+		j = read(fd, V(id));
+		if (!j) { /* success : end of file */
+			close(fd);
+			return 0;
+		}
+		if (j != sizeof(id)) break;
+
+		j = 0;
+		while (j < sizeof(id)) {
+			if (id[j] > 'z' || id[j] < 'a') break;
+			j++;
+		}
+		if (j != sizeof(id)) break;
+
+		if (read(fd, &c, 1) != 1 || c != ' ') break;
+
+		j = 0;
+		while (j < sizeof(buf)) {
+			if (read(fd, &c, 1) != 1) break;
+			if (c == '\n') {
+				buf[j] = 0;
+				break;
+			}
+			buf[j] = c;
+			j++;
+		}
+
+		ptr = realloc(view->entries, sizeof(struct entry) * (i + 1));
+		if (!ptr) break;
+		view->entries = ptr;
+		RZERO(view->entries[i]);
+
+		sstrcpy(view->entries[i].name, buf);
+		view->entries[i].type = 0;
+		view->length = i + 1;
+
+		ptr = realloc(view->other, (i + 1) * ID_LENGTH + 1);
+		if (!ptr) break;
+		view->other = ptr;
+		memcpy(&((char*)view->other)[i * ID_LENGTH], V(id));
+
+		i++;
+	}
+
+	free(view->other);
+	free(view->entries);
+	close(fd);
+	return -1;
 }
