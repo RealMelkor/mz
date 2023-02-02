@@ -15,3 +15,4 @@
  */
 int trash_init();
 int trash_send(int fd, char *path, char *name);
+int trash_clear();

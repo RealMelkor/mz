@@ -38,6 +38,11 @@
 
 struct client client;
 
+static void display_errno() {
+	sstrcpy(client.info, strerror(errno));
+	client.error = 1;
+}
+
 static int display_tab(struct view *view, int x) {
 	char *ptr = strrchr(view->path, '/');
 	size_t length;
@@ -65,18 +70,10 @@ static int name_length(struct view *view) {
 
 int client_init() {
 
-	char *env;
-
 	PZERO(&client);
 
 	client.view = view_init(getenv("PWD"));
 	if (!client.view || file_ls(client.view)) return -1;
-
-	env = getenv("HOME");
-	if (!env) {
-		printf("home folder not found\n");
-		return -1;
-	}
 
 	client.trash = trash_init();
 	if (client.trash < 0) return -1;
@@ -218,7 +215,7 @@ static int newtab() {
 	new = view_init(client.view->path);
 
 	if (!new || file_ls(new)) {
-		snprintf(V(client.info), "%s", strerror(errno));
+		display_errno();
 		return -1;
 	}
 	if (client.view->next) {
@@ -247,7 +244,7 @@ static int closetab() {
 		client.view = view->next;
 	}
 	if (client.view && file_ls(client.view)) {
-		snprintf(V(client.info), "%s", strerror(errno));
+		display_errno();
 		return -1;
 	}
 
@@ -282,6 +279,10 @@ int parse_command() {
 		system("$SHELL");
 		tb_init();
 		file_ls(client.view);
+		return 0;
+	}
+	if (!strncmp(cmd, "trash clear", sizeof(client.field) - 1)) {
+		if (trash_clear()) display_errno();
 		return 0;
 	}
 
@@ -502,8 +503,7 @@ open:
 			}
 			if (trash_send(view->fd, view->path,
 					view->entries[i].name)) {
-				client.error = 1;
-				sstrcpy(client.info, strerror(errno));
+				display_errno();
 				break;
 			}
 			view->entries[i].selected = 0;
@@ -520,8 +520,7 @@ open:
 		while (i < client.copy_length) {
 			if (client.cut ? file_move(view, &client.copy[i]) :
 					file_copy(view, &client.copy[i])) {
-				client.error = 1;
-				sstrcpy(client.info, strerror(errno));
+				display_errno();
 				break;
 			}
 			i++;
