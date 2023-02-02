@@ -17,6 +17,11 @@ Terminal file manager with a vim-like interface
 * N	- select the previous file matching the search
 * .	- toggle the view on hidden folders and files
 * yy	- copy the path of the selected file, using xclip or tmux
+* space	- select file
+* c	- copy selected files
+* x	- cut selected files
+* p	- paste selected files
+* d	- delete selected files
 * :	- enter command mode
 * /	- enter search mode
 

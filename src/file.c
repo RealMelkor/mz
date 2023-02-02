@@ -25,7 +25,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
 #include <sys/stat.h>
+#include <sys/sendfile.h>
 #include "termbox.h"
 #include "view.h"
 #include "file.h"
@@ -127,6 +131,13 @@ int sort(const void* a, const void* b)
 	return 0;
 }
 
+int file_reload(struct view *view) {
+	close(view->fd);
+	view->fd = open(view->path, O_DIRECTORY);
+	if (view->fd < 0) return -1;
+	return file_ls(view);
+}
+
 int file_ls(struct view *view) {
 	struct dirent *entry;
 	DIR *dp;
@@ -145,6 +156,7 @@ int file_ls(struct view *view) {
 			length++;
 	}
 	if (length == 0) {
+		closedir(dp);
 		file_free(view);
 		return 0;
 	}
@@ -199,4 +211,67 @@ int file_select(struct view *view, const char *path) {
 		i++;
 	}
 	return -1;
+}
+
+int file_move(struct view *view, struct entry *entry) {
+
+	int fd, ret;
+
+	fd = openat(view->fd, entry->name, 0);
+	if (fd > -1) {
+		errno = EEXIST;
+		close(fd);
+		return -1;
+	}
+
+	fd = open(client.copy_path, O_DIRECTORY);
+	if (fd < 0) return -1;
+
+	ret = renameat(fd, entry->name, view->fd, entry->name);
+	close(fd);
+	if (ret) return -1;
+
+	return 0;
+}
+
+int file_copy(struct view *view, struct entry *entry) {
+
+	struct stat st;
+	int fd, dstfd, srcfd;
+	off64_t ret, length;
+
+	fd = openat(view->fd, entry->name, 0);
+	if (fd > -1) {
+		close(fd);
+		errno = EEXIST;
+		return -1;
+	}
+
+	fd = open(client.copy_path, O_DIRECTORY);
+	if (fd < 0) return -1;
+	srcfd = openat(fd, entry->name, O_RDONLY);
+	close(fd);
+	if (srcfd < 0) return -1;
+
+	if (fstat(srcfd, &st)) {
+		close(srcfd);
+		return -1;
+	}
+
+	dstfd = openat(view->fd, entry->name, O_WRONLY|O_CREAT, st.st_mode);
+	if (dstfd < 0) return -1;
+
+	length = lseek64(srcfd, 0, SEEK_END);
+	if (length == (off64_t)-1 ||
+			lseek64(srcfd, 0, SEEK_SET) == (off64_t)-1) {
+		close(dstfd);
+		close(srcfd);
+		return -1;
+	}
+	ret = sendfile(dstfd, srcfd, NULL, length);
+	close(dstfd);
+	close(srcfd);
+	if (ret != length) return -1;
+
+	return 0;
 }
