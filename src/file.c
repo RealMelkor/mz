@@ -235,6 +235,11 @@ int file_move(struct view *view, struct entry *entry) {
 	return 0;
 }
 
+#ifdef __linux__
+#define lseek lseek64
+#define off_t off64_t
+#endif
+
 int file_copy(struct view *view, struct entry *entry) {
 
 	struct stat st;
