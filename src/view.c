@@ -25,6 +25,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <unistd.h>
 #include "termbox.h"
 #include "client.h"
 #include "view.h"
@@ -49,6 +50,7 @@ void view_open(struct view *view) {
 	client.error = 0;
 	switch (view->entries[view->selected].type) {
 	case DT_REG:
+		chdir(view->path);
 		if ((size_t)snprintf(V(buf), "xdg-open \"%s\" 2>/dev/null &",
 			  view->entries[view->selected].name) >= sizeof(buf)) {
 			sstrcpy(client.info, "path too long");
