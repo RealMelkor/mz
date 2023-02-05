@@ -339,6 +339,7 @@ int file_move(const char *oldpath, int srcdir, const char *oldname,
 			char buf[PATH_MAX * 3];
 			snprintf(V(buf), "mv %s/%s %s/%s", oldpath, oldname,
 					newpath, newname);
+			return system(buf);
 		}
 
 		src = openat(srcdir, oldname, O_RDONLY);
