@@ -26,6 +26,9 @@ int file_reload(struct view *view);
 int file_cd(struct view *view, const char *path);
 int file_up(struct view *view);
 int file_select(struct view *view, const char *path);
-int file_move(struct view *view, struct entry *entry);
-int file_copy(struct view *view, struct entry *entry);
+int file_move_entry(struct view *view, struct entry *entry);
+int file_move(const char *oldpath, int srcdir, const char *oldname,
+		int dstdir, const char *newpath, const char *newname);
+int file_copy(int src, int dst, int usebuf);
+int file_copy_entry(struct view *view, struct entry *entry);
 void file_free(struct view *view);
