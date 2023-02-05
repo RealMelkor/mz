@@ -22,16 +22,19 @@ Terminal file manager with a vim-like interface
 * x	- cut selected files
 * p	- paste selected files
 * d	- delete selected files
+* r	- restore selected files from the trash
 * :	- enter command mode
 * /	- enter search mode
 
 ## Commands
 
-* :sh	- open a shell in the current folder using $SHELL
-* :![.]	- run a shell command in the current folder, example :!mkdir test
-* :nt	- open a new tab
-* :q	- close the current tab
-* :qa	- close all tabs
+* :sh		- open a shell in the current folder using $SHELL
+* :![command]	- run a shell command in the current folder, example :!mkdir test
+* :nt		- open a new tab
+* :q		- close the current tab
+* :qa		- close all tabs
+* :trash	- open trash in a new tab
+* :trash clear	- permanently delete every files in the trash
 
 ## Build instruction
 
