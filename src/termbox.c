@@ -949,8 +949,8 @@ int tb_init_rwfd(int rfd, int wfd) {
 retry:
         if_err_break(rv, init_term_attrs());
         if_err_break(rv, init_term_caps());
-	if (init_cap_trie() != TB_OK && strcmp(getenv("TERM"), "screen")) {
-		setenv("TERM", "screen", 1);
+	if (init_cap_trie() != TB_OK && strcmp(getenv("TERM"), "xterm")) {
+		setenv("TERM", "xterm", 1);
 		goto retry;
 	}
         if_err_break(rv, init_resize_handler());

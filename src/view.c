@@ -102,7 +102,7 @@ void view_draw(struct view *view) {
 		if (e->selected && fg == TB_CYAN)
 			fg = TB_WHITE;
 		if (e->selected && selected)
-			fg = TB_BLACK;
+			fg = e->type == DT_REG ? TB_BLACK : TB_GREEN;
 		tb_print(0, i + start, fg, bg, e->name);
 		if (e->type == DT_DIR) {
 			tb_set_cell(utf8_width(e->name, PATH_MAX), i + start,

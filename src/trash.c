@@ -38,49 +38,6 @@
 #define TRASH "/.trash"
 #define ID_LENGTH 32
 
-int recursive_delete(const char *dir) {
-
-	int ret;
-	FTS *ftsp;
-	FTSENT *curr;
-	char *files[2];
-
-	files[0] = (char*)dir;
-	files[1] = NULL;
-
-	ftsp = fts_open(files, FTS_NOCHDIR | FTS_PHYSICAL | FTS_XDEV, NULL);
-	if (!ftsp)
-		return -1;
-
-	ret = 0;
-	while ((curr = fts_read(ftsp))) {
-		switch (curr->fts_info) {
-		case FTS_NS:
-		case FTS_DNR:
-		case FTS_ERR:
-			break;
-		case FTS_DC:
-		case FTS_DOT:
-		case FTS_NSOK:
-			break;
-		case FTS_D:
-			break;
-		case FTS_DP:
-		case FTS_F:
-		case FTS_SL:
-		case FTS_SLNONE:
-		case FTS_DEFAULT:
-			if (remove(curr->fts_accpath) < 0)
-				ret = -1;
-			break;
-		}
-	}
-
-	fts_close(ftsp);
-
-	return ret;
-}
-
 static int gethome(char *buf, size_t length) {
 
         struct passwd *pw;
@@ -155,9 +112,9 @@ fail:
 int trash_send(int fd, char *path, char *name) {
 
 	char buf[PATH_MAX * 2], id[ID_LENGTH + 1];
-	int info, len;
+	int info, len, error;
 
-	info = openat(client.trash, "info", O_WRONLY|O_CREAT|O_APPEND, 0700);
+	info = openat(client.trash, "info", O_WRONLY|O_CREAT|O_APPEND, 0600);
 	if (info < 0)
 		return -1;
 
@@ -178,22 +135,24 @@ int trash_send(int fd, char *path, char *name) {
 		close(i);
 	} while (1);
 
-	if (renameat(fd, name, client.trash, id))
-		return -1;
-
-	len = snprintf(V(buf), "%s %s/%s\n", id, path, name);
-	len = write(info, buf, len) != len;
+	trash_path(V(buf));
+	error = file_move(path, fd, name, client.trash, buf, id);
+	if (!error) {
+		len = snprintf(V(buf), "%s %s/%s\n", id, path, name);
+		error = -(write(info, buf, len) != len);
+	}
 	close(info);
 
-	return -len;
+	return error;
 }
 
 int trash_clear() {
 
-	char path[PATH_MAX];
+	char path[PATH_MAX], cmd[PATH_MAX * 2];
 
 	if (trash_path(V(path))) return -1;
-	if (recursive_delete(path)) return -1;
+	snprintf(V(cmd), "rm -r %s", path);
+	if (system(cmd)) return -1;
 
 	close(client.trash);
 	client.trash = trash_init();
@@ -237,7 +196,19 @@ int trash_restore(struct view *view) {
 			continue;
 		}
 
-		if (rename(src, view->entries[j].name)) return -1;
+		if (rename(src, view->entries[j].name)) {
+			char *name;
+			if (errno != EXDEV) return -1;
+			sstrcpy(src, view->entries[j].name);
+			name = strrchr(src, '/');
+			if (!name) return -1;
+			*name = '\0';
+			name++;
+			fd = open(src, O_DIRECTORY);
+			if (fd < 0) return -1;
+			if (file_move(path, client.trash, id, fd, src, name))
+				return -1;
+		}
 		view->entries[j].selected = -1;
 	}
 	return error;

@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <fts.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -214,25 +215,12 @@ int file_select(struct view *view, const char *path) {
 	return -1;
 }
 
-int file_move(struct view *view, struct entry *entry) {
+int file_move_entry(struct view *view, struct entry *entry) {
 
-	int fd, ret;
-
-	fd = openat(view->fd, entry->name, 0);
-	if (fd > -1) {
-		errno = EEXIST;
-		close(fd);
-		return -1;
-	}
-
-	fd = open(client.copy_path, O_DIRECTORY);
+	int fd = open(client.copy_path, O_DIRECTORY);
 	if (fd < 0) return -1;
-
-	ret = renameat(fd, entry->name, view->fd, entry->name);
-	close(fd);
-	if (ret) return -1;
-
-	return 0;
+	return file_move(client.copy_path, fd, entry->name,
+				view->fd, view->path, entry->name);
 }
 
 #ifdef __linux__
@@ -244,11 +232,10 @@ int file_move(struct view *view, struct entry *entry) {
 #define NO_COPY_FILE_RANGE
 #endif
 
-int file_copy(struct view *view, struct entry *entry) {
+int file_copy_entry(struct view *view, struct entry *entry) {
 
 	struct stat st;
 	int fd, dstfd, srcfd;
-	size_t length, ret;
 
 	fd = openat(view->fd, entry->name, 0);
 	if (fd > -1) {
@@ -268,35 +255,106 @@ int file_copy(struct view *view, struct entry *entry) {
 		return -1;
 	}
 
+	if (S_ISDIR(st.st_mode)) {
+		char buf[PATH_MAX];
+		snprintf(V(buf), "cp -r %s/%s %s", client.copy_path,
+				client.copy->name, view->path);
+		return system(buf);
+	}
+
 	dstfd = openat(view->fd, entry->name, O_WRONLY|O_CREAT, st.st_mode);
 	if (dstfd < 0) return -1;
 
-	length = lseek(srcfd, 0, SEEK_END);
+	return file_copy(srcfd, dstfd, 0);
+}
+
+int file_copy(int src, int dst, int usebuf) {
+
+	size_t length, ret;
+
+#ifdef NO_COPY_FILE_RANGE
+	if (usebuf == -1) return -1;
+#endif
+
+	length = lseek(src, 0, SEEK_END);
 	if (length == (size_t)-1 ||
-			lseek(srcfd, 0, SEEK_SET) == (off_t)-1) {
-		close(dstfd);
-		close(srcfd);
+			lseek(src, 0, SEEK_SET) == (off_t)-1) {
+		close(dst);
+		close(src);
 		return -1;
 	}
 
 	ret = 0;
 	while (1) {
-		size_t i;
-#ifdef NO_COPY_FILE_RANGE
+		ssize_t i;
 		char buf[4096];
-		i = read(srcfd, buf, sizeof(buf));
-		if (i <= 0) break;
-		write(dstfd, buf, i);
-#else
-		i = copy_file_range(srcfd, 0, dstfd, 0, length, 0);
-		if (i <= 0) break;
+#ifndef NO_COPY_FILE_RANGE
+		if (usebuf) {
+#endif
+			i = read(src, buf, sizeof(buf));
+			if (i <= 0) break;
+			write(dst, buf, i);
+#ifndef NO_COPY_FILE_RANGE
+		} else {
+			i = copy_file_range(src, 0, dst, 0, length - ret, 0);
+			if (i <= 0) break;
+		}
 #endif
 		ret += i;
 	}
 
-	close(dstfd);
-	close(srcfd);
-	if (ret != length) return -1;
+#ifndef NO_COPY_FILE_RANGE
+	/* retry without copy_file_range if the operation failed */
+	if (ret != length && !usebuf) return file_copy(src, dst, 1);
+#endif
+
+	close(dst);
+	close(src);
+	if (ret != length) {
+		return -1;
+	}
 
 	return 0;
+}
+
+int file_move(const char *oldpath, int srcdir, const char *oldname,
+		int dstdir, const char *newpath, const char *newname) {
+
+	int error, fd;
+
+	fd = openat(dstdir, newname, 0);
+	if (fd > -1) {
+		errno = EEXIST;
+		close(fd);
+		return -1;
+	}
+
+	error = renameat(srcdir, oldname, dstdir, newname);
+	if (error && errno == EXDEV) {
+		int src, dst;
+		struct stat st;
+
+		if (fstatat(srcdir, oldname, &st, 0)) return -1;
+		if (S_ISDIR(st.st_mode)) {
+			char buf[PATH_MAX * 3];
+			snprintf(V(buf), "mv %s/%s %s/%s", oldpath, oldname,
+					newpath, newname);
+		}
+
+		src = openat(srcdir, oldname, O_RDONLY);
+		if (src < 0) return -1;
+		dst = openat(dstdir, newname, O_WRONLY|O_CREAT, st.st_mode);
+		if (dst < 0) {
+			close(src);
+			return -1;
+		}
+		if (!file_copy(src, dst, 1)) {
+			char buf[2048];
+			snprintf(V(buf), "%s/%s", oldpath, oldname);
+			if (!remove(buf)) error = 0;
+		}
+		close(src);
+		close(dst);
+	}
+	return error;
 }

@@ -216,7 +216,8 @@ static void addtab(struct view *new) {
 	}
 	new->prev = client.view;
 	client.view->next = new;
-	new->selected = client.view->selected;
+	if (new->fd != TRASH_FD)
+		new->selected = client.view->selected;
 	client.view = client.view->next;
 }
 
@@ -524,15 +525,16 @@ open:
 		}
 	}
 		file_ls(view);
-		if (view->selected > view->length)
+		if (view->selected >= view->length)
 			view->selected = view->length - 1;
 		break;
 	case 'p': /* paste */
 		if (!client.copy_length) break;
 		i = 0;
 		while (i < client.copy_length) {
-			if (client.cut ? file_move(view, &client.copy[i]) :
-					file_copy(view, &client.copy[i]))
+			if (client.cut ?
+				file_move_entry(view, &client.copy[i]) :
+				file_copy_entry(view, &client.copy[i]))
 				display_errno();
 			i++;
 		}
