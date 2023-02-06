@@ -257,7 +257,7 @@ int file_copy_entry(struct view *view, struct entry *entry) {
 
 	if (S_ISDIR(st.st_mode)) {
 		char buf[PATH_MAX];
-		snprintf(V(buf), "cp -r %s/%s %s", client.copy_path,
+		snprintf(V(buf), "cp -r \"%s/%s\" \"%s\"", client.copy_path,
 				client.copy->name, view->path);
 		return system(buf);
 	}
@@ -330,14 +330,17 @@ int file_move(const char *oldpath, int srcdir, const char *oldname,
 	}
 
 	error = renameat(srcdir, oldname, dstdir, newname);
+	/* EXDEV : when trying to move a file to another file system */
 	if (error && errno == EXDEV) {
 		int src, dst;
 		struct stat st;
 
 		if (fstatat(srcdir, oldname, &st, 0)) return -1;
+		/* use a shell command instead of recursively copying files */
 		if (S_ISDIR(st.st_mode)) {
 			char buf[PATH_MAX * 3];
-			snprintf(V(buf), "mv %s/%s %s/%s", oldpath, oldname,
+			snprintf(V(buf), "mv \"%s/%s\" \"%s/%s\"",
+					oldpath, oldname,
 					newpath, newname);
 			return system(buf);
 		}
