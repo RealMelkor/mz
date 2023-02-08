@@ -281,6 +281,7 @@ int parse_command() {
 		!strncmp(cmd, "tabnew", sizeof(client.field) - 1))
                 return newtab();
 	if (cmd[0] == '!') {
+		fchdir(client.view->fd);
 		tb_shutdown();
 		if (system(&cmd[1])) sleep(1);
 		tb_init();
@@ -288,6 +289,7 @@ int parse_command() {
 		return 0;
 	}
 	if (!strncmp(cmd, "sh", sizeof(client.field) - 1)) {
+		fchdir(client.view->fd);
 		tb_shutdown();
 		system("$SHELL");
 		tb_init();
