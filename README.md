@@ -2,6 +2,8 @@
 
 Terminal file manager with a vim-like interface
 
+![pic0](./img/img.gif)
+
 ## Keybindings
 
 * k	- up
