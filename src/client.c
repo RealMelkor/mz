@@ -578,16 +578,19 @@ open:
 		}
 	{
 		char buf[2048];
-		snprintf(V(buf),
-			"echo \"%s/%s\" | xclip -sel clip 2>/dev/null",
-			view->path, SELECTED(view).name);
-		if (system(buf) && getenv("TMUX")) { /* try tmux if no xclip */
-			snprintf(V(buf), "echo \"%s/%s\" | tmux load-buffer -",
+		client.y = 0;
+		if (system("xclip 2>/dev/null")) {
+			snprintf(V(buf),
+				"printf \"%s/%s\" | xclip -sel clip 2>/dev/null",
+				view->path, SELECTED(view).name);
+			if (!system(buf)) break;
+		}
+		if (getenv("TMUX")) { /* try tmux if no xclip */
+			snprintf(V(buf), "printf \"%s/%s\" | tmux load-buffer -",
 				view->path, SELECTED(view).name);
 			system(buf);
 		}
 	}
-		client.y = 0;
 		break;
 	case ' ': /* select */
 		TOGGLE(SELECTED(view).selected);
