@@ -579,9 +579,9 @@ open:
 	{
 		char buf[2048];
 		client.y = 0;
-		if (system("xclip 2>/dev/null")) {
+		if (!system("xclip >/dev/null 2>&1")) {
 			snprintf(V(buf),
-				"printf \"%s/%s\" | xclip -sel clip 2>/dev/null",
+				"printf \"%s/%s\" | xclip -sel clip >/dev/null 2>&1",
 				view->path, SELECTED(view).name);
 			if (!system(buf)) break;
 		}
