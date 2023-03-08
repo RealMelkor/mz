@@ -83,6 +83,8 @@ int client_init() {
 	client.width = tb_width();
 	client.height = tb_height();
 
+	setenv("EDITOR", "vi", 0);
+
 	return 0;
 }
 
