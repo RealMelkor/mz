@@ -318,14 +318,20 @@ static void client_select(int next) {
 	
 	struct view *view = client.view;
 	size_t i;
+	int reset;
 
 	if (view->length < 1 || !*client.search)
 		return;
 
+	reset = 0;
 	i = view->selected + next;
 	while (i != view->selected || !next) {
 		if (!next) next = 1;
-		if (i == view->length) i = 0;
+		if (i == view->length) {
+			i = 0;
+			if (reset) break;
+			reset = 1;
+		}
 		if (strcasestr(view->entries[i].name, client.search)) {
 			view->selected = i;
 			break;
