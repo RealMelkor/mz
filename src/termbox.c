@@ -947,6 +947,7 @@ int tb_init_fd(int ttyfd) {
 int tb_init_rwfd(int rfd, int wfd) {
 	int rv;
 	const char *term;
+	const char *retry_with = "xterm";
 
 	tb_reset();
 	global.ttyfd = rfd == wfd && isatty(rfd) ? rfd : -1;
@@ -955,7 +956,7 @@ int tb_init_rwfd(int rfd, int wfd) {
 
 	term = getenv("TERM");
 	if (!term) {
-		term = "xterm";
+		term = retry_with;
 		setenv("TERM", term, 0);
 	}
 
@@ -979,8 +980,9 @@ retry:
 	} while (0);
 
 	if (rv != TB_OK) {
-		if (strcmp(term, "xterm")) {
-			setenv("TERM", "xterm", 1);
+		if (strcmp(term, retry_with)) {
+			setenv("TERM", retry_with, 1);
+			term = retry_with;
 			goto retry;
 		}
 		tb_deinit();
