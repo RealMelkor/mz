@@ -492,6 +492,8 @@ open:
 		client_select(-1);
 		break;
 	case 'e':
+		if (view->selected < 0 || view->selected >= view->length)
+			break;
 		if (SELECTED(view).type == DT_DIR)
 			break;
 	{
