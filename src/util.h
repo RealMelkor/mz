@@ -19,6 +19,7 @@
 #define IMAGE(X, Y) backend_load_image(X##_xpm, X##_width, X##_height, \
 				       X##_colors, X##_char, Y)
 #define SELECTED(X) X->entries[X->selected]
+#define EMPTY(X) (X->selected < 0 || X->selected >= X->length)
 
 /* Assign the sum of X and Y to X if the sum is lesser than Z, else assign Z */
 #define ADDMAX(X, Y, Z) X = ((X + Y) > Z ? Z : (X + Y))

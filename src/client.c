@@ -492,9 +492,7 @@ open:
 		client_select(-1);
 		break;
 	case 'e':
-		if (view->selected < 0 || view->selected >= view->length)
-			break;
-		if (SELECTED(view).type == DT_DIR)
+		if (EMPTY(view) || SELECTED(view).type == DT_DIR)
 			break;
 	{
 		char buf[2048];
@@ -582,6 +580,8 @@ open:
 	}
 		break;
 	case 'y': /* copy selection path to clipboard */
+		if (EMPTY(view))
+			break;
 		if (!client.y) {
 			client.y = 1;
 			break;
@@ -603,7 +603,8 @@ open:
 	}
 		break;
 	case ' ': /* select */
-		TOGGLE(SELECTED(view).selected);
+		if (!EMPTY(view))
+			TOGGLE(SELECTED(view).selected);
 		break;
 	}
 
