@@ -497,6 +497,7 @@ open:
 	{
 		char buf[2048];
 		tb_shutdown();
+		chdir(view->path);
 		snprintf(V(buf), "$EDITOR \"%s/%s\"",
 				view->path, SELECTED(view).name);
 		system(buf);
