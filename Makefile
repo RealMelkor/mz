@@ -2,7 +2,7 @@ SHELL = /bin/sh
 
 CC=cc
 PREFIX=/usr/local
-CFLAGS=-ansi -Wall -Wextra -std=c89 -pedantic -O2
+CFLAGS=-Wall -Wextra -std=c89 -pedantic -O2 -D_POSIX_C_SOURCE=200809L
 LIBS=-s -lm
 
 # uncomment to build on Illumos
@@ -10,10 +10,7 @@ LIBS=-s -lm
 #CC=gcc
 
 build: src/*
-	${CC} ${CFLAGS} src/main.c src/file.c src/strlcpy.c src/trash.c \
-	src/view.c src/client.c src/termbox.c src/wcwidth.c src/utf8.c \
-	${INCLUDES} ${LIBSPATH} \
-	-o mz ${LIBS} 
+	${CC} ${CFLAGS} src/*.c ${INCLUDES} ${LIBSPATH} -o mz ${LIBS}
 
 install:
 	cp mz ${PREFIX}/bin/

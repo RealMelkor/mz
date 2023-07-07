@@ -15,11 +15,8 @@
  */
 #define V(X) X, sizeof(X) /* the value and its size */
 #define VP(X) X, sizeof(*X) /* the pointer and its value size */
-/* Load an xpm image */
-#define IMAGE(X, Y) backend_load_image(X##_xpm, X##_width, X##_height, \
-				       X##_colors, X##_char, Y)
 #define SELECTED(X) X->entries[X->selected]
-#define EMPTY(X) (X->selected < 0 || X->selected >= X->length)
+#define EMPTY(X) (X->selected >= X->length)
 
 /* Assign the sum of X and Y to X if the sum is lesser than Z, else assign Z */
 #define ADDMAX(X, Y, Z) X = ((X + Y) > Z ? Z : (X + Y))
@@ -31,14 +28,8 @@
 #define RZERO(X) memset(&X, 0, sizeof(X)) /* Zero'd a reference */
 #define PZERO(X) memset(X, 0, sizeof(*X)) /* Zero'd a pointer */
 
-#define rev32(num) ( ((num & 0xFF000000) >> 24) | ((num & 0x00FF0000) >> 8) | \
-                     ((num & 0x0000FF00) << 8) | ((num & 0x000000FF) << 24) )
-#define rev24(num) ( (num & 0xFF000000) | ((num & 0x00FF0000) >> 16) | \
-                     (num & 0x0000FF00) | ((num & 0x000000FF) << 16) )
-
-#define INN(X, Y) X ? X : Y /* If not null return X else return Y */
-#define TOGGLE(X) X = !X
-#define MAX(X, Y) X > Y ? Y : X /* if X is greater than Y return Y */
+#define TOGGLE(X) (X = !X)
+#define MAX(X, Y) (X > Y ? Y : X) /* if X is greater than Y return Y */
 
 #ifndef DT_REG
 #define DT_REG 0
