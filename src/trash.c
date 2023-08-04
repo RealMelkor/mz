@@ -169,8 +169,7 @@ int trash_rawpath(struct view *view, char *out, size_t length) {
 
 	if (view->fd != TRASH_FD) return -1;
 	if (trash_path(V(path))) return -1;
-	memcpy(id,
-		&((char*)view->other)[view->selected * ID_LENGTH], ID_LENGTH);
+	memcpy(id, view->entries[view->selected].other, ID_LENGTH);
 	id[ID_LENGTH] = '\0';
 	if (snprintf(out, length, "%s/%s", path, id) >= (int)length) return -1;
 	return 0;
@@ -198,7 +197,7 @@ int trash_restore(struct view *view) {
 		int fd;
 
 		if (!view->entries[j].selected) continue;
-		memcpy(id, &((char*)view->other)[j * ID_LENGTH], ID_LENGTH);
+		memcpy(id, view->entries[j].other, ID_LENGTH);
 		id[ID_LENGTH] = '\0';
 		snprintf(V(src), "%s/%s", path, id);
 
@@ -262,7 +261,7 @@ int trash_refresh(struct view *view) {
 
 		if (view->entries[j].selected == -1) continue;
 
-		write(fd, &((char*)view->other)[j * ID_LENGTH], ID_LENGTH);
+		write(fd, view->entries[j].other, ID_LENGTH);
 		c = ' ';
 		write(fd, &c, 1);
 		write(fd, view->entries[j].name,
@@ -272,7 +271,11 @@ int trash_refresh(struct view *view) {
 	}
 	close(fd);
 
-	free(view->other);
+	i = 0;
+	while (i < view->length) {
+		free(view->entries[i].other);
+	}
+
 	free(view->entries);
 
 	next = view->next;
@@ -298,7 +301,7 @@ int trash_view(struct view* view) {
 	if (fd < 0) return 0;
 
 	i = 0;
-	while (i < sizeof(buf)) {
+	while (1) {
 
 		void *ptr;
 		char id[ID_LENGTH];
@@ -308,6 +311,8 @@ int trash_view(struct view* view) {
 		j = read(fd, V(id));
 		if (!j) { /* success : end of file */
 			close(fd);
+			qsort(view->entries, view->length,
+				sizeof(struct entry), file_sort);
 			return 0;
 		}
 		if (j != sizeof(id)) break;
@@ -340,26 +345,26 @@ int trash_view(struct view* view) {
 		sstrcpy(view->entries[i].name, buf);
 		view->entries[i].type = DT_REG;
 		{
-			struct stat buf;
+			struct stat s;
 			char path[ID_LENGTH + 1];
 			memcpy(path, id, ID_LENGTH);
 			path[ID_LENGTH] = 0;
 			view->entries[i].type =
-				fstatat(client.trash, path, &buf, 0) ?
-					DT_REG : (S_ISDIR(buf.st_mode) ?
+				fstatat(client.trash, path, &s, 0) ?
+					DT_REG : (S_ISDIR(s.st_mode) ?
 						DT_DIR : DT_REG);
 		}
 		view->length = i + 1;
 
-		ptr = realloc(view->other, (i + 1) * ID_LENGTH + 1);
-		if (!ptr) break;
-		view->other = ptr;
-		memcpy(&((char*)view->other)[i * ID_LENGTH], V(id));
+		view->entries[i].other = malloc(ID_LENGTH);
+		if (!view->entries[i].other) break;
+		memcpy(view->entries[i].other, V(id));
 
 		i++;
 	}
 
-	free(view->other);
+	for (i = 0; i < view->length; i++)
+		free(view->entries[i].other);
 	free(view->entries);
 	close(fd);
 	return -1;

@@ -100,6 +100,11 @@ int file_cd(struct view *view, const char *path) {
 }
 
 void file_free(struct view *view) {
+	size_t i;
+	for (i = 0; i < view->length; i++) {
+		free(view->entries[i].other);
+		view->entries[i].other = NULL;
+	}
 	free(view->entries);
 	view->length = 0;
 	view->entries = NULL;
@@ -165,7 +170,7 @@ int file_ls(struct view *view) {
 	
 	rewinddir(dp);
 	file_free(view);
-	view->entries = malloc(sizeof(struct entry) * length);
+	view->entries = calloc(length, sizeof(struct entry));
 	i = 0;
 	while ((entry = readdir(dp))) {
 		if (!strcmp(entry->d_name, ".") ||

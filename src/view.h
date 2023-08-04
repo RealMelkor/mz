@@ -25,7 +25,6 @@ struct view {
 	int size;
 	struct view *next;
 	struct view *prev;
-	void *other; /* custom data for non-regular views */
 };
 
 struct view *view_init(const char *path);

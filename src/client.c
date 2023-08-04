@@ -264,7 +264,6 @@ static int closetab() {
 	if (view->fd > 0)
 		close(view->fd);
 	file_free(view);
-	free(view->other);
 	free(view);
 	return client.view == NULL;
 }
