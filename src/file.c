@@ -105,7 +105,7 @@ void file_free(struct view *view) {
 	view->entries = NULL;
 }
 
-int sort(const void* a, const void* b)
+int file_sort(const void* a, const void* b)
 {
 	struct entry *first = (struct entry*)a;
 	struct entry *second = (struct entry*)b;
@@ -178,13 +178,15 @@ int file_ls(struct view *view) {
 			sizeof(view->entries[i].name));
 
 #ifndef sun
-		if (entry->d_type == DT_LNK) {
+		if (entry->d_type == DT_LNK || entry->d_type == DT_UNKNOWN) {
 #endif
 			struct stat buf;
-			view->entries[i].type =
-				fstatat(view->fd, entry->d_name, &buf, 0);
-			view->entries[i].type = S_ISDIR(buf.st_mode) ?
-				DT_DIR : DT_REG;
+			if (!fstatat(view->fd, entry->d_name, &buf, 0)) {
+				view->entries[i].type = S_ISDIR(buf.st_mode) ?
+					DT_DIR : DT_REG;
+			} else {
+				view->entries[i].type = DT_REG;
+			}
 #ifndef sun
 		} else
 			view->entries[i].type = entry->d_type;
@@ -192,7 +194,7 @@ int file_ls(struct view *view) {
 		i++;
 	}
 
-	qsort(view->entries, length, sizeof(struct entry), sort);
+	qsort(view->entries, length, sizeof(struct entry), file_sort);
 
 	closedir(dp);
 	close(fd);

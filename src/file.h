@@ -18,6 +18,7 @@ struct entry {
 	char name[1024];
 	int type;
 	int selected;
+	void *other; /* custom data for non-regular entry */
 };
 
 int file_init(struct view* view, const char *path);
@@ -32,3 +33,4 @@ int file_move(const char *oldpath, int srcdir, const char *oldname,
 int file_copy(int src, int dst, int usebuf);
 int file_copy_entry(struct view *view, struct entry *entry);
 void file_free(struct view *view);
+int file_sort(const void* a, const void* b);

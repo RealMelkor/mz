@@ -20,6 +20,7 @@
 #endif
 #include <stdio.h>
 #include <stdlib.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
@@ -165,12 +166,11 @@ int trash_rawpath(struct view *view, char *out, size_t length) {
 
 	char path[PATH_MAX];
 	char id[ID_LENGTH + 1];
-	int i;
 
 	if (view->fd != TRASH_FD) return -1;
 	if (trash_path(V(path))) return -1;
-	i = view->selected;
-	memcpy(id, &((char*)view->other)[i * ID_LENGTH], ID_LENGTH);
+	memcpy(id,
+		&((char*)view->other)[view->selected * ID_LENGTH], ID_LENGTH);
 	id[ID_LENGTH] = '\0';
 	if (snprintf(out, length, "%s/%s", path, id) >= (int)length) return -1;
 	return 0;
@@ -338,7 +338,17 @@ int trash_view(struct view* view) {
 		RZERO(view->entries[i]);
 
 		sstrcpy(view->entries[i].name, buf);
-		view->entries[i].type = 0;
+		view->entries[i].type = DT_REG;
+		{
+			struct stat buf;
+			char path[ID_LENGTH + 1];
+			memcpy(path, id, ID_LENGTH);
+			path[ID_LENGTH] = 0;
+			view->entries[i].type =
+				fstatat(client.trash, path, &buf, 0) ?
+					DT_REG : (S_ISDIR(buf.st_mode) ?
+						DT_DIR : DT_REG);
+		}
 		view->length = i + 1;
 
 		ptr = realloc(view->other, (i + 1) * ID_LENGTH + 1);

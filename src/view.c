@@ -33,6 +33,7 @@
 #include "util.h"
 #include "strlcpy.h"
 #include "utf8.h"
+#include "trash.h"
 
 struct view *view_init(const char *path) {
 	struct view *view = malloc(sizeof(struct view));
@@ -50,6 +51,7 @@ void view_open(struct view *view) {
 	client.error = 0;
 	switch (view->entries[view->selected].type) {
 	case DT_REG:
+		if (view->fd == TRASH_FD) break;
 		chdir(view->path);
 		if ((size_t)snprintf(V(buf), "xdg-open \"%s\" >/dev/null 2>&1 &",
 			  view->entries[view->selected].name) >= sizeof(buf)) {
