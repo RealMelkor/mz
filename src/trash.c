@@ -161,6 +161,21 @@ int trash_clear() {
 	return 0;
 }
 
+int trash_rawpath(struct view *view, char *out, size_t length) {
+
+	char path[PATH_MAX];
+	char id[ID_LENGTH + 1];
+	int i;
+
+	if (view->fd != TRASH_FD) return -1;
+	if (trash_path(V(path))) return -1;
+	i = view->selected;
+	memcpy(id, &((char*)view->other)[i * ID_LENGTH], ID_LENGTH);
+	id[ID_LENGTH] = '\0';
+	if (snprintf(out, length, "%s/%s", path, id) >= (int)length) return -1;
+	return 0;
+}
+
 int trash_restore(struct view *view) {
 
 	size_t i;

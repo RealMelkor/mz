@@ -271,18 +271,20 @@ static int closetab() {
 
 int parse_command() {
 
-        char *cmd = &client.field[1];
+	/* trim */
+	char *cmd = client.field + strnlen(V(client.field)) - 1;
+	for (; cmd >= client.field && (*cmd == ' ' || *cmd == '\t'); cmd--)
+		*cmd = '\0';
 
-        if (cmd[0] == 'q' && cmd[1] == '\0')
+        if (!STRCMP(client.field, ":q"))
                 return closetab();
-        if (cmd[0] == 'q' && cmd[1] == 'a' && cmd[2] == '\0') {
+        if (!STRCMP(client.field, ":qa")) {
                 while (!closetab()) ;
                 return 1;
         }
-        if ((cmd[0] == 'n' && cmd[1] == 't' && cmd[2] == '\0') ||
-		!strncmp(cmd, "tabnew", sizeof(client.field) - 1))
+        if (!STRCMP(client.field, ":nt") || !STRCMP(client.field, ":tabnew"))
                 return newtab();
-	if (cmd[0] == '!') {
+	if (!strncmp(client.field, V(":!"))) { /* start with ":!" */
 		fchdir(client.view->fd);
 		tb_shutdown();
 		if (system(&cmd[1])) sleep(1);
@@ -290,7 +292,7 @@ int parse_command() {
 		file_ls(client.view);
 		return 0;
 	}
-	if (!strncmp(cmd, "sh", sizeof(client.field) - 1)) {
+	if (!STRCMP(client.field, ":sh")) {
 		fchdir(client.view->fd);
 		tb_shutdown();
 		system("$SHELL");
@@ -298,13 +300,13 @@ int parse_command() {
 		file_ls(client.view);
 		return 0;
 	}
-	if (!strncmp(cmd, "trash", sizeof(client.field) - 1)) {
+	if (!STRCMP(client.field, ":trash")) {
 		struct view *v = malloc(sizeof(struct view));
 		if (!v || trash_view(v)) display_errno();
 		else addtab(v);
 		return 0;
 	}
-	if (!strncmp(cmd, "trash clear", sizeof(client.field) - 1)) {
+	if (!STRCMP(client.field, ":trash clear")) {
 		if (trash_clear()) display_errno();
 		return 0;
 	}
@@ -495,11 +497,17 @@ open:
 		if (EMPTY(view) || SELECTED(view).type == DT_DIR)
 			break;
 	{
-		char buf[2048];
-		tb_shutdown();
-		chdir(view->path);
-		snprintf(V(buf), "$EDITOR \"%s/%s\"",
+		char buf[PATH_MAX + 256];
+		if (view->fd == TRASH_FD) {
+			char path[PATH_MAX];
+			if (trash_rawpath(view, V(path))) break;
+			snprintf(V(buf), "$EDITOR \"%s\"", path);
+		} else {
+			snprintf(V(buf), "$EDITOR \"%s/%s\"",
 				view->path, SELECTED(view).name);
+			chdir(view->path);
+		}
+		tb_shutdown();
 		system(buf);
 		tb_init();
 	}

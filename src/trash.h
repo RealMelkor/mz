@@ -21,4 +21,5 @@ int trash_send(int fd, char *path, char *name);
 int trash_view(struct view* view);
 int trash_restore(struct view *view);
 int trash_refresh(struct view *view);
+int trash_rawpath(struct view *view, char *out, size_t length);
 int trash_clear();
