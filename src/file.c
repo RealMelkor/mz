@@ -43,7 +43,7 @@ int file_init(struct view *view, const char* path) {
 	PZERO(view);
 
 	if (path)
-		sstrcpy(view->path, path);
+		STRCPY(view->path, path);
 	else if (view->path != getcwd(V(view->path)))
 		return -1;
 
@@ -65,7 +65,7 @@ int file_cd(struct view *view, const char *path) {
 
 	if (!strcmp(path, ".")) return 0;
 
-	len = sstrcpy(buf, view->path);
+	len = STRCPY(buf, view->path);
 	back = 0;
 	if (!strcmp(path, "..")) {
 		if (!strcmp(view->path, "/")) {
@@ -94,7 +94,7 @@ int file_cd(struct view *view, const char *path) {
 	close(view->fd);
 	view->fd = fd;
 	fchdir(fd);
-	sstrcpy(view->path, buf);
+	STRCPY(view->path, buf);
 	view->selected = 0;
 	return 0;
 }

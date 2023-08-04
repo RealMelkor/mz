@@ -45,25 +45,25 @@ void view_open(struct view *view) {
 
 	char buf[2048];
 
-	if (view->length < 1)
+	if (view->length < 1 || view->fd == TRASH_FD)
 		return;
 
 	client.error = 0;
 	switch (view->entries[view->selected].type) {
 	case DT_REG:
-		if (view->fd == TRASH_FD) break;
 		chdir(view->path);
-		if ((size_t)snprintf(V(buf), "xdg-open \"%s\" >/dev/null 2>&1 &",
-			  view->entries[view->selected].name) >= sizeof(buf)) {
-			sstrcpy(client.info, "path too long");
+		if ((size_t)snprintf(V(buf),
+				"xdg-open \"%s\" >/dev/null 2>&1 &",
+				SELECTED(view).name) >= sizeof(buf)) {
+			STRCPY(client.info, "path too long");
 			client.error = 1;
 			break;
 		}
 		system(buf);
 		break;
 	case DT_DIR:
-		if (file_cd(view, view->entries[view->selected].name)) {
-			sstrcpy(client.info, strerror(errno));
+		if (file_cd(view, SELECTED(view).name)) {
+			STRCPY(client.info, strerror(errno));
 			client.error = 1;
 			break;
 		}

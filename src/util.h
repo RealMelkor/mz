@@ -28,6 +28,7 @@
 #define RZERO(X) memset(&X, 0, sizeof(X)) /* Zero'd a reference */
 #define PZERO(X) memset(X, 0, sizeof(*X)) /* Zero'd a pointer */
 #define STRCMP(X, Y) strncmp(X, Y, sizeof(X))
+#define STRCPY(X, Y) strlcpy(X, Y, sizeof(X))
 
 #define TOGGLE(X) (X = !X)
 #define MAX(X, Y) (X > Y ? Y : X) /* if X is greater than Y return Y */

@@ -39,7 +39,7 @@
 struct client client;
 
 static void display_errno() {
-	sstrcpy(client.info, strerror(errno));
+	STRCPY(client.info, strerror(errno));
 	client.error = 1;
 }
 
@@ -448,7 +448,7 @@ open:
 		char *ptr = strrchr(view->path, '/');
 		if (!ptr)
 			break;
-		sstrcpy(name, ptr + 1);
+		STRCPY(name, ptr + 1);
 		if (file_up(view))
 			break;
 		file_ls(view);
@@ -573,7 +573,7 @@ open:
 		if (!length) break;
 		free(client.copy);
 		client.copy = malloc(sizeof(struct entry) * length);
-		sstrcpy(client.copy_path, view->path);
+		STRCPY(client.copy_path, view->path);
 		client.copy_length = length;
 		i = 0;
 		while (i < view->length) {

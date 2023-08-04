@@ -165,13 +165,12 @@ int trash_clear() {
 int trash_rawpath(struct view *view, char *out, size_t length) {
 
 	char path[PATH_MAX];
-	char id[ID_LENGTH + 1];
 
 	if (view->fd != TRASH_FD) return -1;
 	if (trash_path(V(path))) return -1;
-	memcpy(id, view->entries[view->selected].other, ID_LENGTH);
-	id[ID_LENGTH] = '\0';
-	if (snprintf(out, length, "%s/%s", path, id) >= (int)length) return -1;
+	if (snprintf(out, length, "%s/%s", path,
+			(char*)SELECTED(view).other) >= (int)length)
+		return -1;
 	return 0;
 }
 
@@ -192,13 +191,12 @@ int trash_restore(struct view *view) {
 	while (i < view->length) {
 
 		char src[PATH_MAX];
-		char id[ID_LENGTH + 1];
+		char *id;
 		size_t j = i++;
 		int fd;
 
 		if (!view->entries[j].selected) continue;
-		memcpy(id, view->entries[j].other, ID_LENGTH);
-		id[ID_LENGTH] = '\0';
+		id = view->entries[j].other;
 		snprintf(V(src), "%s/%s", path, id);
 
 		/* check if file exist before using rename */
@@ -213,7 +211,7 @@ int trash_restore(struct view *view) {
 		if (rename(src, view->entries[j].name)) {
 			char *name;
 			if (errno != EXDEV) return -1;
-			sstrcpy(src, view->entries[j].name);
+			STRCPY(src, view->entries[j].name);
 			name = strrchr(src, '/');
 			if (!name) return -1;
 			*name = '\0';
@@ -294,7 +292,7 @@ int trash_view(struct view* view) {
 	char buf[PATH_MAX * 2];
 
 	PZERO(view);
-	sstrcpy(view->path, "Trash");
+	STRCPY(view->path, "Trash");
 	view->fd = TRASH_FD;
 
 	fd = openat(client.trash, "info", O_RDONLY);
@@ -342,7 +340,7 @@ int trash_view(struct view* view) {
 		view->entries = ptr;
 		RZERO(view->entries[i]);
 
-		sstrcpy(view->entries[i].name, buf);
+		STRCPY(view->entries[i].name, buf);
 		view->entries[i].type = DT_REG;
 		{
 			struct stat s;
@@ -356,7 +354,7 @@ int trash_view(struct view* view) {
 		}
 		view->length = i + 1;
 
-		view->entries[i].other = malloc(ID_LENGTH);
+		view->entries[i].other = calloc(ID_LENGTH + 1, 1);
 		if (!view->entries[i].other) break;
 		memcpy(view->entries[i].other, V(id));
 
