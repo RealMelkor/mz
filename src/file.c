@@ -123,12 +123,12 @@ int file_sort(const void* a, const void* b)
 	while (1) {
 		uint32_t c1, c2;
 		do {
-			i += tb_utf8_char_to_unicode(&c1, &first->name[i]);
 			if (!first->name[i]) return 0;
+			i += tb_utf8_char_to_unicode(&c1, &first->name[i]);
 		} while (c1 == ' ' || c1 == '\t');
 		do {
-			j += tb_utf8_char_to_unicode(&c2, &second->name[j]);
 			if (!second->name[j]) return 0;
+			j += tb_utf8_char_to_unicode(&c2, &second->name[j]);
 		} while (c2 == ' ' || c2 == '\t');
 		c1 = tolower(c1);
 		c2 = tolower(c2);
