@@ -283,10 +283,10 @@ int parse_command() {
         }
         if (!STRCMP(client.field, ":nt") || !STRCMP(client.field, ":tabnew"))
                 return newtab();
-	if (!strncmp(client.field, V(":!"))) { /* start with ":!" */
+	if (!strncmp(client.field, V(":!") - 1)) { /* start with ":!" */
 		fchdir(client.view->fd);
 		tb_shutdown();
-		if (system(&cmd[1])) sleep(1);
+		if (system(&client.field[2])) sleep(1);
 		tb_init();
 		file_ls(client.view);
 		return 0;
@@ -310,7 +310,7 @@ int parse_command() {
 		return 0;
 	}
 
-        snprintf(V(client.info), "Not a command: %s", cmd);
+        snprintf(V(client.info), "Not a command: %s", &client.field[1]);
         client.error = 1;
         return 0;
 }
