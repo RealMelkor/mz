@@ -41,9 +41,31 @@ struct view *view_init(const char *path) {
 	return view;
 }
 
+int format_path(const char *str, char *out, size_t length) {
+
+	size_t i = 0, j = 0;
+
+	while (str[i] && j < length - 1) {
+		size_t len = tb_utf8_char_length(str[i]);
+		if (len > 1) {
+			if (j + len > length) return -1;
+			memcpy(&out[j], &str[i], len);
+			i += len; j += len;
+			continue;
+		}
+		if (str[i] == '"') out[j++] = '\\';
+		out[j++] = str[i++];
+	}
+
+	out[j] = '\0';
+	return -(j >= length - 1); /* error if str was not properly copied */
+}
+
 void view_open(struct view *view) {
 
-	char buf[2048];
+	const char xdg[] = "xdg-open \"%s\" >/dev/null 2>&1 &";
+	char name[PATH_MAX];
+	char buf[sizeof(name) + sizeof(xdg) + 1];
 
 	if (view->length < 1 || view->fd == TRASH_FD)
 		return;
@@ -52,13 +74,12 @@ void view_open(struct view *view) {
 	switch (view->entries[view->selected].type) {
 	case DT_REG:
 		chdir(view->path);
-		if ((size_t)snprintf(V(buf),
-				"xdg-open \"%s\" >/dev/null 2>&1 &",
-				SELECTED(view).name) >= sizeof(buf)) {
+		if (format_path(SELECTED(view).name, V(name))) {
 			STRCPY(client.info, "path too long");
 			client.error = 1;
 			break;
 		}
+		snprintf(V(buf), xdg, name);
 		system(buf);
 		break;
 	case DT_DIR:
