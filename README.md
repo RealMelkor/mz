@@ -42,6 +42,10 @@ Terminal file manager with a vim-like interface
 
 Simply clone the repository and run the command "make"
 
+## Dependency
+
+* [termbox2][0] - terminal rendering library (included in the source)
+
 ## Supported platforms
 
 Known to build and run on the following platforms :
@@ -51,3 +55,5 @@ Known to build and run on the following platforms :
 * OpenBSD
 * NetBSD
 * Illumos
+
+[0]: https://github.com/termbox/termbox2
