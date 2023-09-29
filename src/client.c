@@ -422,6 +422,12 @@ int client_input() {
         case TB_KEY_ARROW_UP:
 		ev.ch = 'k';
 		break;
+	case TB_KEY_ARROW_LEFT:
+		ev.ch = 'h';
+		break;
+        case TB_KEY_ARROW_RIGHT:
+		ev.ch = 'l';
+		break;
 	case TB_KEY_ESC:
 		client_reset();
 		return 0;
