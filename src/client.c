@@ -389,6 +389,7 @@ void client_reset() {
 }
 
 int client_input() {
+
 	struct tb_event ev;
 	struct view *view = client.view;
 	size_t i = 0;
@@ -399,13 +400,14 @@ int client_input() {
 		return -1;
 	}
 
-	if (ev.type == TB_EVENT_RESIZE) {
+	switch (ev.type) {
+	case TB_EVENT_RESIZE:
 		client.width = ev.w;
 		client.height = ev.h;
 		return 0;
-	}
-
-	if (ev.type != TB_EVENT_KEY) {
+	case TB_EVENT_KEY:
+		break;
+	default:
 		return 0;
 	}
 
@@ -413,7 +415,14 @@ int client_input() {
 		return client_command(ev);
 	}
 
-	if (ev.key == TB_KEY_ESC) {
+	switch (ev.key) {
+	case TB_KEY_ARROW_DOWN:
+		ev.ch = 'j';
+		break;
+        case TB_KEY_ARROW_UP:
+		ev.ch = 'k';
+		break;
+	case TB_KEY_ESC:
 		client_reset();
 		return 0;
 	}
