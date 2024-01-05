@@ -24,7 +24,7 @@ SOFTWARE.
 */
 /* this file was edited to respect the C89 standard */
 
-#ifndef __linux__
+#if !(defined __linux__) && !(defined __CYGWIN__)
 #undef _POSIX_C_SOURCE
 #include <signal.h>
 #endif
