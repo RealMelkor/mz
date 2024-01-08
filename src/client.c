@@ -47,7 +47,7 @@ static int display_tab(struct view *view, int x) {
 	char *ptr = strrchr(view->path, '/');
 	size_t length;
 	char buf[1024];
-	if (!ptr) ptr = view->path;
+	if (!ptr || !ptr[1]) ptr = view->path;
 	else ptr++;
 	length = AZ(utf8_width(ptr, sizeof(view->path) - (ptr - view->path)));
 	if (length > TAB_WIDTH_LIMIT) {
