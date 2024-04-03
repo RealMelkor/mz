@@ -27,7 +27,9 @@ SOFTWARE.
 #if !(defined __linux__) && !(defined __CYGWIN__)
 #undef _POSIX_C_SOURCE
 #include <signal.h>
-#else
+#endif
+
+#if (defined __linux__) || (defined sun)
 #define HAS_INOTIFY
 #endif
 

@@ -24,7 +24,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#if (defined __linux__) || (defined __CYGWIN__)
+#if (defined __linux__) || (defined sun)
 #define HAS_INOTIFY
 #include <sys/inotify.h>
 #endif
