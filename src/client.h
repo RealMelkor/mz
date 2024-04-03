@@ -38,11 +38,12 @@ struct client {
 	int y;
 	int trash;
 	int cut;
-	int inotfy_fd;
-	int inotfy_watch;
+	int inotify_fd;
+	int inotify_watch;
 	char field[1024];
 	char info[1024];
 	char search[1024];
+	char watch[1024];
 };
 extern struct client client;
 

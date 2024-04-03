@@ -24,7 +24,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#if (defined __linux__) || (defined __CYGWIN__)
+#define HAS_INOTIFY
 #include <sys/inotify.h>
+#endif
 #include "termbox.h"
 #include "view.h"
 #include "client.h"
@@ -80,7 +83,11 @@ int client_init() {
 	client.trash = trash_init();
 	if (client.trash < 0) return -1;
 
-	if ((client.inotfy_fd = inotify_init()) < 0) return -1;
+#ifdef HAS_INOTIFY
+	if ((client.inotify_fd = inotify_init()) < 0) return -1;
+#else
+	client.inotify_fd = -1;
+#endif
 
 	if (tb_init()) return -1;
 	client.width = tb_width();
@@ -94,7 +101,9 @@ int client_init() {
 int client_clean() {
 	free(client.copy);
 	free(client.view);
-	close(client.inotfy_fd);
+#ifdef HAS_INOTIFY
+	close(client.inotify_fd);
+#endif
 	return tb_shutdown();
 }
 
@@ -175,22 +184,27 @@ draw:
 	return;
 }
 
-char prev[PATH_MAX] = {0};
 int client_update() {
 
         char counter[32];
         struct view *view = client.view;
 	size_t i;
 
-	if (strncmp(prev, view->path, PATH_MAX)) {
+#ifdef HAS_INOTIFY
+	if (STRCMP(client.watch, view->path)) {
 		int fd;
 
-		fd = inotify_add_watch(client.inotfy_fd, view->path,
+		if (*client.watch) {
+			inotify_rm_watch(client.inotify_fd,
+						client.inotify_watch);
+		}
+		fd = inotify_add_watch(client.inotify_fd, view->path,
 					IN_CREATE|IN_DELETE);
 		if (fd == -1) return -1;
-		client.inotfy_watch = fd;
-		STRCPY(prev, view->path);
+		client.inotify_watch = fd;
+		STRCPY(client.watch, view->path);
 	}
+#endif
 
 	tb_clear();
 
@@ -409,7 +423,7 @@ int client_input() {
 	size_t i = 0;
 	int ret;
 
-	ret = tb_poll_event(&ev, client.inotfy_fd);
+	ret = tb_poll_event(&ev, client.inotify_fd);
 	if (ret != TB_OK && ret != TB_ERR_POLL) {
 		return -1;
 	}
@@ -421,9 +435,11 @@ int client_input() {
 		return 0;
 	case TB_EVENT_KEY:
 		break;
+#ifdef HAS_INOTIFY
 	case TB_EVENT_INOTIFY:
 		file_reload(view);
 		break;
+#endif
 	default:
 		return 0;
 	}

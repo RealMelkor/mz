@@ -27,6 +27,8 @@ SOFTWARE.
 #if !(defined __linux__) && !(defined __CYGWIN__)
 #undef _POSIX_C_SOURCE
 #include <signal.h>
+#else
+#define HAS_INOTIFY
 #endif
 
 #ifdef sun
@@ -57,7 +59,9 @@ SOFTWARE.
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#ifdef HAS_INOTIFY
 #include <sys/inotify.h>
+#endif
 #include <termios.h>
 #include <unistd.h>
 #include <wchar.h>
@@ -2054,12 +2058,14 @@ static int wait_event(struct tb_event *event, int timeout, int fd) {
 	tv.tv_usec = (timeout - (tv.tv_sec * 1000)) * 1000;
 
 	do {
-		int maxfd, select_rv, tty_has_events,
-				resize_has_events, inotify_has_events;
+		int maxfd, select_rv, tty_has_events, resize_has_events;
+#ifdef HAS_INOTIFY
+		int inotify_has_events;
+#endif
 		FD_ZERO(&fds);
 		FD_SET(global.rfd, &fds);
 		FD_SET(global.resize_pipefd[0], &fds);
-		FD_SET(fd, &fds);
+		if (fd > -1) FD_SET(fd, &fds);
 
 		maxfd = global.resize_pipefd[0] > global.rfd
 			? global.resize_pipefd[0]
@@ -2078,7 +2084,9 @@ static int wait_event(struct tb_event *event, int timeout, int fd) {
 
 		tty_has_events = (FD_ISSET(global.rfd, &fds));
 		resize_has_events = (FD_ISSET(global.resize_pipefd[0], &fds));
+#ifdef HAS_INOTIFY
 		inotify_has_events = (FD_ISSET(fd, &fds));
+#endif
 
 		if (tty_has_events) {
 			ssize_t read_rv = read(global.rfd, buf, sizeof(buf));
@@ -2102,12 +2110,14 @@ static int wait_event(struct tb_event *event, int timeout, int fd) {
 			return TB_OK;
 		}
 
+#ifdef HAS_INOTIFY
 		if (inotify_has_events) {
 			struct inotify_event ievent = {0};
 			read(fd, &ievent, sizeof(ievent));
 			event->type = TB_EVENT_INOTIFY;
 			return TB_OK;
 		}
+#endif
 
 		memset(event, 0, sizeof(*event));
 		if_ok_return(rv, extract_event(event));
