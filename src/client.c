@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/inotify.h>
 #include "termbox.h"
 #include "view.h"
 #include "client.h"
@@ -79,6 +80,8 @@ int client_init() {
 	client.trash = trash_init();
 	if (client.trash < 0) return -1;
 
+	if ((client.inotfy_fd = inotify_init()) < 0) return -1;
+
 	if (tb_init()) return -1;
 	client.width = tb_width();
 	client.height = tb_height();
@@ -91,6 +94,7 @@ int client_init() {
 int client_clean() {
 	free(client.copy);
 	free(client.view);
+	close(client.inotfy_fd);
 	return tb_shutdown();
 }
 
@@ -171,11 +175,22 @@ draw:
 	return;
 }
 
+char prev[PATH_MAX] = {0};
 int client_update() {
 
         char counter[32];
         struct view *view = client.view;
 	size_t i;
+
+	if (strncmp(prev, view->path, PATH_MAX)) {
+		int fd;
+
+		fd = inotify_add_watch(client.inotfy_fd, view->path,
+					IN_CREATE|IN_DELETE);
+		if (fd == -1) return -1;
+		client.inotfy_watch = fd;
+		STRCPY(prev, view->path);
+	}
 
 	tb_clear();
 
@@ -199,7 +214,6 @@ int client_update() {
 		i++;
 	}
         tb_print(0, client.height - 2, TB_BLACK, TB_WHITE, view->path);
-
 
 	/* display tabs bar if there's more than one tab */
 	if (TABS)
@@ -395,7 +409,7 @@ int client_input() {
 	size_t i = 0;
 	int ret;
 
-	ret = tb_poll_event(&ev);
+	ret = tb_poll_event(&ev, client.inotfy_fd);
 	if (ret != TB_OK && ret != TB_ERR_POLL) {
 		return -1;
 	}
@@ -406,6 +420,9 @@ int client_input() {
 		client.height = ev.h;
 		return 0;
 	case TB_EVENT_KEY:
+		break;
+	case TB_EVENT_INOTIFY:
+		file_reload(view);
 		break;
 	default:
 		return 0;
@@ -622,12 +639,14 @@ open:
 		client.y = 0;
 		if (!system("xclip >/dev/null 2>&1")) {
 			snprintf(V(buf),
-				"printf \"%s/%s\" | xclip -sel clip >/dev/null 2>&1",
+				"printf \"%s/%s\" | "
+				"xclip -sel clip >/dev/null 2>&1",
 				view->path, SELECTED(view).name);
 			if (!system(buf)) break;
 		}
 		if (getenv("TMUX")) { /* try tmux if no xclip */
-			snprintf(V(buf), "printf \"%s/%s\" | tmux load-buffer -",
+			snprintf(V(buf),
+				"printf \"%s/%s\" | tmux load-buffer -",
 				view->path, SELECTED(view).name);
 			system(buf);
 		}

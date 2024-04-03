@@ -193,6 +193,7 @@ SOFTWARE.
 #define TB_EVENT_KEY        1
 #define TB_EVENT_RESIZE     2
 #define TB_EVENT_MOUSE      3
+#define TB_EVENT_INOTIFY    4
 
 /* Key modifiers (bitwise) (tb_event.mod) */
 #define TB_MOD_ALT          1
@@ -498,10 +499,10 @@ int tb_set_output_mode(int mode);
  * check errno via tb_last_errno(). If it's EINTR, you can safely ignore that
  * and call tb_peek_event() again.
  */
-int tb_peek_event(struct tb_event *event, int timeout_ms);
+int tb_peek_event(struct tb_event *event, int timeout_ms, int fd);
 
 /* Same as tb_peek_event except no timeout. */
-int tb_poll_event(struct tb_event *event);
+int tb_poll_event(struct tb_event *event, int fd);
 
 /* Internal termbox FDs that can be used with poll() / select(). Must call
  * tb_poll_event() / tb_peek_event() if activity is detected. */

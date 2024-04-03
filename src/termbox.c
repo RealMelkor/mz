@@ -57,6 +57,7 @@ SOFTWARE.
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/inotify.h>
 #include <termios.h>
 #include <unistd.h>
 #include <wchar.h>
@@ -886,7 +887,7 @@ static int load_builtin_caps(void);
 static const char *get_terminfo_string(int16_t str_offsets_pos,
 			int16_t str_table_pos, int16_t str_table_len,
 			int16_t str_index);
-static int wait_event(struct tb_event *event, int timeout);
+static int wait_event(struct tb_event *event, int timeout, int fd);
 static int extract_event(struct tb_event *event);
 static int extract_esc(struct tb_event *event);
 static int extract_esc_user(struct tb_event *event, int is_post);
@@ -1209,14 +1210,14 @@ int tb_set_output_mode(int mode) {
 	return TB_ERR;
 }
 
-int tb_peek_event(struct tb_event *event, int timeout_ms) {
+int tb_peek_event(struct tb_event *event, int timeout_ms, int fd) {
 	if_not_init_return();
-	return wait_event(event, timeout_ms);
+	return wait_event(event, timeout_ms, fd);
 }
 
-int tb_poll_event(struct tb_event *event) {
+int tb_poll_event(struct tb_event *event, int fd) {
 	if_not_init_return();
-	return wait_event(event, -1);
+	return wait_event(event, -1, fd);
 }
 
 int tb_get_fds(int *ttyfd, int *resizefd) {
@@ -2040,7 +2041,7 @@ static const char *get_terminfo_string(int16_t str_offsets_pos,
 				(int)*str_offset);
 }
 
-static int wait_event(struct tb_event *event, int timeout) {
+static int wait_event(struct tb_event *event, int timeout, int fd) {
 	int rv;
 	char buf[TB_OPT_READ_BUF];
 	fd_set fds;
@@ -2053,10 +2054,12 @@ static int wait_event(struct tb_event *event, int timeout) {
 	tv.tv_usec = (timeout - (tv.tv_sec * 1000)) * 1000;
 
 	do {
-		int maxfd, select_rv, tty_has_events, resize_has_events;
+		int maxfd, select_rv, tty_has_events,
+				resize_has_events, inotify_has_events;
 		FD_ZERO(&fds);
 		FD_SET(global.rfd, &fds);
 		FD_SET(global.resize_pipefd[0], &fds);
+		FD_SET(fd, &fds);
 
 		maxfd = global.resize_pipefd[0] > global.rfd
 			? global.resize_pipefd[0]
@@ -2075,6 +2078,7 @@ static int wait_event(struct tb_event *event, int timeout) {
 
 		tty_has_events = (FD_ISSET(global.rfd, &fds));
 		resize_has_events = (FD_ISSET(global.resize_pipefd[0], &fds));
+		inotify_has_events = (FD_ISSET(fd, &fds));
 
 		if (tty_has_events) {
 			ssize_t read_rv = read(global.rfd, buf, sizeof(buf));
@@ -2095,6 +2099,13 @@ static int wait_event(struct tb_event *event, int timeout) {
 			event->type = TB_EVENT_RESIZE;
 			event->w = global.width;
 			event->h = global.height;
+			return TB_OK;
+		}
+
+		if (inotify_has_events) {
+			struct inotify_event ievent = {0};
+			read(fd, &ievent, sizeof(ievent));
+			event->type = TB_EVENT_INOTIFY;
 			return TB_OK;
 		}
 
