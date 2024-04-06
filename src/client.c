@@ -42,7 +42,7 @@
 
 struct client client;
 
-static void display_errno() {
+static void display_errno(void) {
 	STRCPY(client.info, strerror(errno));
 	client.error = 1;
 }
@@ -73,7 +73,7 @@ static int name_length(struct view *view) {
 		TAB_WIDTH_LIMIT);
 }
 
-int client_init() {
+int client_init(void) {
 
 	PZERO(&client);
 
@@ -98,7 +98,7 @@ int client_init() {
 	return 0;
 }
 
-int client_clean() {
+int client_clean(void) {
 	free(client.copy);
 	free(client.view);
 #ifdef HAS_INOTIFY
@@ -184,7 +184,7 @@ draw:
 	return;
 }
 
-int client_update() {
+int client_update(void) {
 
         char counter[32];
         struct view *view = client.view;
@@ -251,7 +251,7 @@ static void addtab(struct view *new) {
 	client.view = client.view->next;
 }
 
-static int newtab() {
+static int newtab(void) {
 	struct view *new;
 	char *path;
 
@@ -272,7 +272,7 @@ static int newtab() {
 	return 0;
 }
 
-static int closetab() {
+static int closetab(void) {
 
 	struct view *view = client.view;
 
@@ -296,7 +296,7 @@ static int closetab() {
 	return client.view == NULL;
 }
 
-int parse_command() {
+int parse_command(void) {
 
 	/* trim */
 	char *cmd = client.field + strnlen(V(client.field)) - 1;
@@ -412,11 +412,11 @@ int client_command(struct tb_event ev) {
         return 0;
 }
 
-void client_reset() {
+void client_reset(void) {
 	client.counter = client.g = client.y = 0;
 }
 
-int client_input() {
+int client_input(void) {
 
 	struct tb_event ev;
 	struct view *view = client.view;

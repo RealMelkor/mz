@@ -2,7 +2,7 @@ SHELL = /bin/sh
 
 CC=cc
 PREFIX=/usr/local
-CFLAGS=-Wall -Wextra -std=c89 -pedantic -O2 -D_POSIX_C_SOURCE=200809L
+CFLAGS=-ansi -Wall -Wextra -pedantic -O2
 LIBS=-s -lm
 
 # uncomment to build on Illumos

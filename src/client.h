@@ -47,7 +47,7 @@ struct client {
 };
 extern struct client client;
 
-int client_init();
-int client_clean();
-int client_update();
-int client_input();
+int client_init(void);
+int client_clean(void);
+int client_update(void);
+int client_input(void);

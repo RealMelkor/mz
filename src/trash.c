@@ -81,7 +81,7 @@ clean: /* make sure we're not deleting a whole folder by accident */
 	return -1;
 }
 
-int trash_init() {
+int trash_init(void) {
 	char path[PATH_MAX];
 	int home, trash;
 
@@ -146,7 +146,7 @@ int trash_send(int fd, char *path, char *name) {
 	return error;
 }
 
-int trash_clear() {
+int trash_clear(void) {
 
 	char path[PATH_MAX], cmd[PATH_MAX * 2];
 
