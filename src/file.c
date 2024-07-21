@@ -175,7 +175,7 @@ int file_ls(struct view *view) {
 	file_free(view);
 	view->entries = calloc(length, sizeof(struct entry));
 	i = 0;
-	while ((entry = readdir(dp))) {
+	while ((entry = readdir(dp)) && i < length) {
 		if (!strcmp(entry->d_name, ".") ||
 				!strcmp(entry->d_name, ".."))
 			continue;
