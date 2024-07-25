@@ -70,14 +70,15 @@ static int trash_path(char *path, size_t length) {
 	if (len == -1 || len + sizeof(TRASH) >= length) goto clean;
 
 	len = strlcpy(path, buf, length);
-	strlcpy(&path[len], TRASH, sizeof(path) - length);
+	if ((size_t)len > length) goto clean;
+	strlcpy(&path[len], TRASH, length - len);
 
 	if (!strncmp(path, buf, length)) goto clean;
 
 	return 0;
 clean: /* make sure we're not deleting a whole folder by accident */
 	memset(path, 0, length);
-	strlcpy(path, "/nonexistent/folder", sizeof(path));
+	strlcpy(path, "/nonexistent/folder", length);
 	return -1;
 }
 
