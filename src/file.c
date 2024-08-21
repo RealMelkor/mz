@@ -207,6 +207,9 @@ int file_ls(struct view *view) {
 
 	closedir(dp);
 	view->length = length;
+	if (view->length && view->selected >= view->length) {
+		view->selected = view->length - 1;
+	}
 	view->scroll = 0;
 	lseek(view->fd, 0, SEEK_SET);
 	return 0;

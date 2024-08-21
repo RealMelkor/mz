@@ -33,7 +33,6 @@
 #include "client.h"
 #include "file.h"
 #include "strlcpy.h"
-#include "wcwidth.h"
 #include "utf8.h"
 #include "trash.h"
 #include "util.h"
