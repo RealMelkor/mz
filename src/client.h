@@ -21,7 +21,8 @@ enum {
 	MODE_NORMAL,
 	MODE_COMMAND,
 	MODE_SEARCH,
-	MODE_VISUAL
+	MODE_VISUAL,
+	MODE_PATH
 };
 
 struct client {

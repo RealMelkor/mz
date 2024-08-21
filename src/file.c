@@ -58,10 +58,21 @@ int file_up(struct view *view) {
 	return file_cd(view, "..");
 }
 
+int file_cd_abs(struct view *view, const char *path) {
+	int fd = open(path, O_DIRECTORY);
+	if (fd < 0) return -1;
+	if (fchdir(fd)) return -1;
+	close(view->fd);
+	view->fd = fd;
+	STRCPY(view->path, path);
+	view->selected = 0;
+	return 0;
+}
+
 int file_cd(struct view *view, const char *path) {
 
 	char buf[PATH_MAX];
-	int fd, len, back;
+	int len, back;
 
 	if (!strcmp(path, ".")) return 0;
 
@@ -89,14 +100,7 @@ int file_cd(struct view *view, const char *path) {
 		strlcpy(&buf[len], path, sizeof(buf) - len);
 	}
 
-	fd = open(buf, O_DIRECTORY);
-	if (fd < 0) return -1;
-	close(view->fd);
-	view->fd = fd;
-	fchdir(fd);
-	STRCPY(view->path, buf);
-	view->selected = 0;
-	return 0;
+	return file_cd_abs(view, buf);
 }
 
 void file_free(struct view *view) {
@@ -375,4 +379,9 @@ int file_move(const char *oldpath, int srcdir, const char *oldname,
 		close(dst);
 	}
 	return error;
+}
+
+int file_is_directory(const char *path) {
+	struct stat s;
+	return stat(path, &s) == 0 && s.st_mode & S_IFDIR;
 }

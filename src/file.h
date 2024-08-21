@@ -34,3 +34,5 @@ int file_copy(int src, int dst, int usebuf);
 int file_copy_entry(struct view *view, struct entry *entry);
 void file_free(struct view *view);
 int file_sort(const void* a, const void* b);
+int file_is_directory(const char *path);
+int file_cd_abs(struct view *view, const char *path);

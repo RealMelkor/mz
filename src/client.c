@@ -295,6 +295,12 @@ static int closetab(void) {
 	return client.view == NULL;
 }
 
+int parse_path(void) {
+	if (file_cd_abs(client.view, client.field) || file_ls(client.view))
+		display_errno();
+	return 0;
+}
+
 int parse_command(void) {
 
 	/* trim */
@@ -392,6 +398,8 @@ int client_command(struct tb_event ev) {
 		pos = 0;
 		if (client.mode == MODE_COMMAND)
                 	pos = parse_command();
+		if (client.mode == MODE_PATH)
+			pos = parse_path();
                 client.mode = MODE_NORMAL;
                 client.field[0] = '\0';
                 return pos;
@@ -413,6 +421,13 @@ int client_command(struct tb_event ev) {
 
 void client_reset(void) {
 	client.counter = client.g = client.y = 0;
+}
+
+static int text_mode(int mode)  {
+	switch (mode) {
+		case MODE_COMMAND: case MODE_SEARCH: case MODE_PATH: return 1;
+	}
+	return 0;
 }
 
 int client_input(void) {
@@ -443,7 +458,7 @@ int client_input(void) {
 		return 0;
 	}
 
-	if (client.mode == MODE_COMMAND || client.mode == MODE_SEARCH) {
+	if (text_mode(client.mode)) {
 		return client_command(ev);
 	}
 
@@ -670,6 +685,12 @@ open:
 	case ' ': /* select */
 		if (!EMPTY(view))
 			TOGGLE(SELECTED(view).selected);
+		break;
+	case 'i': /* edit path */
+		client.mode = MODE_PATH;
+		client.error = 0;
+		client_reset();
+		STRCPY(client.field, view->path);
 		break;
 	}
 

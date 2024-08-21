@@ -27,6 +27,7 @@ Terminal file manager with a vim-like interface
 * r	- restore selected files from the trash
 * :	- enter command mode
 * /	- enter search mode
+* i - edit path
 
 ## Commands
 
