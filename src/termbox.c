@@ -68,6 +68,7 @@ SOFTWARE.
 #include <unistd.h>
 #include <wchar.h>
 #include "termbox.h"
+#include "util.h"
 
 #ifndef IMAXBEL
 #define IMAXBEL 0
@@ -2087,7 +2088,7 @@ static int wait_event(struct tb_event *event, int timeout, int fd) {
 		tty_has_events = (FD_ISSET(global.rfd, &fds));
 		resize_has_events = (FD_ISSET(global.resize_pipefd[0], &fds));
 #ifdef HAS_INOTIFY
-		inotify_has_events = (FD_ISSET(fd, &fds));
+		inotify_has_events = fd > (-1) ? (FD_ISSET(fd, &fds)) : 0;
 #endif
 
 		if (tty_has_events) {
@@ -2114,8 +2115,12 @@ static int wait_event(struct tb_event *event, int timeout, int fd) {
 
 #ifdef HAS_INOTIFY
 		if (inotify_has_events) {
-			struct inotify_event ievent = {0};
-			read(fd, &ievent, sizeof(ievent));
+			unsigned int avail = 0;
+			char buf[64];
+			ioctl(fd, FIONREAD, &avail);
+			for (; avail > 0; avail -= MAX(sizeof(buf), avail)) {
+				read(fd, &buf, MAX(sizeof(buf), avail));
+			}
 			event->type = TB_EVENT_INOTIFY;
 			return TB_OK;
 		}

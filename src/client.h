@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 RMF <rawmonk@firemail.cc>
+ * Copyright (c) 2023 RMF <rawmonk@rmf-dev.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -39,8 +39,10 @@ struct client {
 	int y;
 	int trash;
 	int cut;
+#ifdef HAS_INOTIFY
 	int inotify_fd;
 	int inotify_watch;
+#endif
 	char field[1024];
 	char info[1024];
 	char search[1024];

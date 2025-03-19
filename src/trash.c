@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 RMF <rawmonk@firemail.cc>
+ * Copyright (c) 2023 RMF <rawmonk@rmf-dev.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -115,7 +115,7 @@ int trash_send(int fd, char *path, char *name) {
 	char buf[PATH_MAX * 2], id[ID_LENGTH + 1];
 	int info, len, error;
 
-	info = openat(client.trash, "info", O_WRONLY|O_CREAT|O_APPEND, 0600);
+	info = openat(client.trash, "info", O_WRONLY|O_CREAT|O_APPEND, 0644);
 	if (info < 0)
 		return -1;
 
@@ -250,7 +250,7 @@ int trash_refresh(struct view *view) {
 	if (!rewrite) return 0;
 
 	/* rewrite info file */
-	fd = openat(client.trash, "info", O_CREAT|O_WRONLY|O_TRUNC);
+	fd = openat(client.trash, "info", O_CREAT|O_WRONLY|O_TRUNC, 0644);
 	if (!fd) return -1;
 
 	i = 0;

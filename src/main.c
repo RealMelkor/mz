@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 RMF <rawmonk@firemail.cc>
+ * Copyright (c) 2023 RMF <rawmonk@rmf-dev.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -20,7 +20,6 @@
 #include <errno.h>
 #include <string.h>
 #include <stdint.h>
-#include "termbox.h"
 #include "util.h"
 #include "client.h"
 #include "view.h"

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 RMF <rawmonk@firemail.cc>
+ * Copyright (c) 2023 RMF <rawmonk@rmf-dev.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -84,8 +84,6 @@ int client_init(void) {
 
 #ifdef HAS_INOTIFY
 	if ((client.inotify_fd = inotify_init()) < 0) return -1;
-#else
-	client.inotify_fd = -1;
 #endif
 
 	if (tb_init()) return -1;
@@ -316,7 +314,7 @@ int parse_command(void) {
         }
         if (!STRCMP(client.field, ":nt") || !STRCMP(client.field, ":tabnew"))
                 return newtab();
-	if (!strncmp(client.field, V(":!") - 1)) { /* start with ":!" */
+	if (STARTWITH(client.field, ":!")) {
 		fchdir(client.view->fd);
 		tb_shutdown();
 		if (system(&client.field[2])) sleep(1);
@@ -326,6 +324,9 @@ int parse_command(void) {
 	}
 	if (!STRCMP(client.field, ":sh")) {
 		fchdir(client.view->fd);
+#ifdef HAS_INOTIFY
+		close(client.inotify_fd);
+#endif
 		tb_shutdown();
 		system("$SHELL");
 		tb_init();
@@ -436,8 +437,13 @@ int client_input(void) {
 	struct view *view = client.view;
 	size_t i = 0;
 	int ret;
+#ifdef HAS_INOTIFY
+	const int fd = client.inotify_fd;
+#else
+	const int fd = -1;
+#endif
 
-	ret = tb_poll_event(&ev, client.inotify_fd);
+	ret = tb_poll_event(&ev, fd);
 	if (ret != TB_OK && ret != TB_ERR_POLL) {
 		return -1;
 	}

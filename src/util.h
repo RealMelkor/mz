@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 RMF <rawmonk@firemail.cc>
+ * Copyright (c) 2023 RMF <rawmonk@rmf-dev.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -29,6 +29,7 @@
 #define PZERO(X) memset(X, 0, sizeof(*X)) /* Zero'd a pointer */
 #define STRCMP(X, Y) strncmp(X, Y, sizeof(X))
 #define STRCPY(X, Y) strlcpy(X, Y, sizeof(X))
+#define STARTWITH(X, Y) (!strncmp(X, V(Y) - 1))
 
 #define TOGGLE(X) (X = !X)
 #define MAX(X, Y) (X > Y ? Y : X) /* if X is greater than Y return Y */
