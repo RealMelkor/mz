@@ -24,10 +24,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#if (defined __linux__) || (defined sun)
-#define HAS_INOTIFY
-#include <sys/inotify.h>
-#endif
 #include "termbox.h"
 #include "view.h"
 #include "client.h"
@@ -36,6 +32,9 @@
 #include "utf8.h"
 #include "trash.h"
 #include "util.h"
+#ifdef HAS_INOTIFY
+#include <sys/inotify.h>
+#endif
 
 #define TAB_WIDTH_LIMIT 20
 
@@ -47,9 +46,11 @@ static void display_errno(void) {
 }
 
 static int display_tab(struct view *view, int x) {
-	char *ptr = strrchr(view->path, '/');
+	char *ptr;
 	size_t length;
 	char buf[1024];
+	view->path[sizeof(view->path) - 1] = 0;
+	ptr = strrchr(view->path, '/');
 	if (!ptr || !ptr[1]) ptr = view->path;
 	else ptr++;
 	length = AZ(utf8_width(ptr, sizeof(view->path) - (ptr - view->path)));
@@ -188,18 +189,25 @@ int client_update(void) {
 	size_t i;
 
 #ifdef HAS_INOTIFY
-	if (STRCMP(client.watch, view->path)) {
+	if (!STRCMP(view->path, "Trash")) {
+		if (*client.watch) {
+			inotify_rm_watch(client.inotify_fd,
+						client.inotify_watch);
+			*client.watch = 0;
+			client.inotify_watch = -1;
+		}
+	} else if (STRCMP(client.watch, view->path)) {
 		int fd;
-
 		if (*client.watch) {
 			inotify_rm_watch(client.inotify_fd,
 						client.inotify_watch);
 		}
 		fd = inotify_add_watch(client.inotify_fd, view->path,
-					IN_CREATE|IN_DELETE);
+				IN_CREATE|IN_DELETE|
+				IN_MOVED_FROM|IN_MOVED_TO);
 		if (fd == -1) return -1;
-		client.inotify_watch = fd;
 		STRCPY(client.watch, view->path);
+		client.inotify_watch = fd;
 	}
 #endif
 
@@ -256,13 +264,19 @@ static int newtab(void) {
 	if (client.view->fd == TRASH_FD)
 		path = NULL;
 
-	if (path)
-		chdir(path);
+	if (path && chdir(path)) {
+		path = getenv("HOME");
+		if (path && chdir(path)) {
+			display_errno();
+			return 0;
+		}
+		STRCPY(client.view->path, path);
+	}
 	new = view_init(path);
 
 	if (!new || file_ls(new)) {
 		display_errno();
-		return -1;
+		return 0;
 	}
 	addtab(new);
 
@@ -315,7 +329,10 @@ int parse_command(void) {
         if (!STRCMP(client.field, ":nt") || !STRCMP(client.field, ":tabnew"))
                 return newtab();
 	if (STARTWITH(client.field, ":!")) {
-		fchdir(client.view->fd);
+		if (fchdir(client.view->fd)) {
+			display_errno();
+			return 0;
+		}
 		tb_shutdown();
 		if (system(&client.field[2])) sleep(1);
 		tb_init();
@@ -323,12 +340,15 @@ int parse_command(void) {
 		return 0;
 	}
 	if (!STRCMP(client.field, ":sh")) {
-		fchdir(client.view->fd);
-#ifdef HAS_INOTIFY
-		close(client.inotify_fd);
-#endif
+		if (fchdir(client.view->fd)) {
+			display_errno();
+			return 0;
+		}
 		tb_shutdown();
-		system("$SHELL");
+		if (system("$SHELL") == -1) {
+			display_errno();
+			return 0;
+		}
 		tb_init();
 		file_ls(client.view);
 		return 0;
@@ -359,10 +379,11 @@ static void client_select(int next) {
 		return;
 
 	reset = 0;
+	if (next < 0) next = 0;
 	i = view->selected + next;
 	while (i != view->selected || !next) {
 		if (!next) next = 1;
-		if (i == view->length) {
+		if (i >= view->length) {
 			i = 0;
 			if (reset) break;
 			reset = 1;
@@ -408,7 +429,7 @@ int client_command(struct tb_event ev) {
 
         if (!ev.ch) return 0;
 
-        pos = utf8_len(client.field, sizeof(client.field) - 2);
+        pos = utf8_len(client.field, sizeof(client.field) - 5);
 	pos += tb_utf8_unicode_to_char(&client.field[pos], ev.ch);
         client.field[pos] = '\0';
 	if (client.mode == MODE_SEARCH) {
@@ -444,7 +465,10 @@ int client_input(void) {
 #endif
 
 	ret = tb_poll_event(&ev, fd);
-	if (ret != TB_OK && ret != TB_ERR_POLL) {
+	if (ret == TB_ERR_INOTIFY) {
+		client.inotify_fd = -1;
+		return 0;
+	} else if (ret != TB_OK && ret != TB_ERR_POLL) {
 		return -1;
 	}
 
@@ -580,10 +604,15 @@ open:
 		} else {
 			snprintf(V(buf), "$EDITOR \"%s/%s\"",
 				view->path, SELECTED(view).name);
-			chdir(view->path);
+			if (chdir(view->path)) {
+				display_errno();
+				break;
+			}
 		}
 		tb_shutdown();
-		system(buf);
+		if (system(buf) == -1) {
+			display_errno();
+		}
 		tb_init();
 	}
 		break;
@@ -600,12 +629,14 @@ open:
 		break;
 	case 'r': /* restore */
 		if (view->fd != TRASH_FD) break;
+		return -1;
 		if (trash_restore(view)) display_errno();
 		if (trash_refresh(view)) display_errno();
 		break;
 	case 'd': /* delete (move to trash) */
 	{
 		size_t i = 0;
+		if (view->fd == TRASH_FD) break;
 		while (i < view->length) {
 			size_t j = i++;
 			if (!view->entries[j].selected) continue;
@@ -649,6 +680,10 @@ open:
 		if (!length) break;
 		free(client.copy);
 		client.copy = malloc(sizeof(struct entry) * length);
+		if (!client.copy) {
+			display_errno();
+			break;
+		}
 		STRCPY(client.copy_path, view->path);
 		client.copy_length = length;
 		i = 0;
@@ -678,13 +713,16 @@ open:
 				"printf \"%s/%s\" | "
 				"xclip -sel clip >/dev/null 2>&1",
 				view->path, SELECTED(view).name);
-			if (!system(buf)) break;
+			if (!system(buf)) {
+				display_errno();
+				break;
+			}
 		}
 		if (getenv("TMUX")) { /* try tmux if no xclip */
 			snprintf(V(buf),
 				"printf \"%s/%s\" | tmux load-buffer -",
 				view->path, SELECTED(view).name);
-			system(buf);
+			if (system(buf) == -1) display_errno();
 		}
 	}
 		break;

@@ -2103,8 +2103,12 @@ static int wait_event(struct tb_event *event, int timeout, int fd) {
 
 		if (resize_has_events) {
 			int ignore = 0;
-			read(global.resize_pipefd[0], &ignore, sizeof(ignore));
-			/* TODO Harden against errors encountered mid-resize */
+			size_t i = read(global.resize_pipefd[0],
+						&ignore, sizeof(ignore));
+			if (i != sizeof(ignore)) {
+				global.last_errno = errno;
+				return TB_ERR_READ;
+			}
 			if_err_return(rv, update_term_size());
 			if_err_return(rv, resize_cellbufs());
 			event->type = TB_EVENT_RESIZE;
@@ -2115,11 +2119,15 @@ static int wait_event(struct tb_event *event, int timeout, int fd) {
 
 #ifdef HAS_INOTIFY
 		if (inotify_has_events) {
-			unsigned int avail = 0;
+			unsigned int avail = 0, i;
 			char buf[64];
 			ioctl(fd, FIONREAD, &avail);
 			for (; avail > 0; avail -= MAX(sizeof(buf), avail)) {
-				read(fd, &buf, MAX(sizeof(buf), avail));
+				i = read(fd, &buf, MAX(sizeof(buf), avail));
+				if (i != avail) {
+					close(fd);
+					return TB_ERR_INOTIFY;
+				}
 			}
 			event->type = TB_EVENT_INOTIFY;
 			return TB_OK;
@@ -2453,7 +2461,10 @@ static int resize_cellbufs(void) {
 
 static void handle_resize(int sig) {
 	int errno_copy = errno;
-	write(global.resize_pipefd[1], &sig, sizeof(sig));
+	if (write(global.resize_pipefd[1], &sig, sizeof(sig)) != sizeof(sig)) {
+		tb_shutdown();
+		exit(-1);
+	}
 	errno = errno_copy;
 }
 

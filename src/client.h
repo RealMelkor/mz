@@ -16,6 +16,9 @@
 
 #define TABS (client.view->next || client.view->prev)
 #define HEIGHT (TABS ? (client.height - 4) : (client.height - 3))
+#if (defined __linux__) || (defined sun)
+#define HAS_INOTIFY
+#endif
 
 enum {
 	MODE_NORMAL,

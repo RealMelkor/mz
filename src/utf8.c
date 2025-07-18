@@ -24,8 +24,10 @@ int utf8_width(char* ptr, size_t len) {
         char* max = ptr + len;
         while (*ptr && ptr < max) {
                 uint32_t c;
+		int i;
                 ptr += tb_utf8_char_to_unicode(&c, ptr);
-                width += mk_wcwidth(c);
+		i = mk_wcwidth(c);
+		if (i > 0) width += i;
         }
         return width;
 }

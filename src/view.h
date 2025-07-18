@@ -32,3 +32,4 @@ void view_open(struct view *view);
 void view_draw(struct view *view);
 void view_select(struct view *view, const char *name);
 void view_unselect(struct view *view);
+int format_path(const char *str, char *out, size_t length);

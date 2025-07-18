@@ -37,6 +37,7 @@
 
 struct view *view_init(const char *path) {
 	struct view *view = malloc(sizeof(struct view));
+	if (!view) return NULL;
 	file_init(view, path);
 	return view;
 }
@@ -53,7 +54,7 @@ int format_path(const char *str, char *out, size_t length) {
 			i += len; j += len;
 			continue;
 		}
-		if (str[i] == '"') out[j++] = '\\';
+		if (str[i] == '\'') out[j++] = '\\';
 		out[j++] = str[i++];
 	}
 
@@ -63,7 +64,7 @@ int format_path(const char *str, char *out, size_t length) {
 
 void view_open(struct view *view) {
 
-	const char xdg[] = "xdg-open \"%s\" >/dev/null 2>&1 &";
+	const char xdg[] = "xdg-open '%s' >/dev/null 2>&1 &";
 	char name[PATH_MAX];
 	char buf[sizeof(name) + sizeof(xdg) + 1];
 
@@ -73,14 +74,21 @@ void view_open(struct view *view) {
 	client.error = 0;
 	switch (view->entries[view->selected].type) {
 	case DT_REG:
-		chdir(view->path);
+		if (chdir(view->path)) {
+			STRCPY(client.info, strerror(errno));
+			client.error = 1;
+			break;
+		}
 		if (format_path(SELECTED(view).name, V(name))) {
 			STRCPY(client.info, "path too long");
 			client.error = 1;
 			break;
 		}
 		snprintf(V(buf), xdg, name);
-		system(buf);
+		if (system(buf) == -1) {
+			STRCPY(client.info, strerror(errno));
+			client.error = 1;
+		}
 		break;
 	case DT_DIR:
 		if (file_cd(view, SELECTED(view).name)) {

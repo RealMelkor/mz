@@ -178,6 +178,10 @@ int file_ls(struct view *view) {
 	rewinddir(dp);
 	file_free(view);
 	view->entries = calloc(length, sizeof(struct entry));
+	if (!view->entries) {
+		closedir(dp);
+		return -1;
+	}
 	i = 0;
 	while ((entry = readdir(dp)) && i < length) {
 		if (!strcmp(entry->d_name, ".") ||
@@ -303,7 +307,7 @@ int file_copy(int src, int dst, int usebuf) {
 	}
 
 	ret = 0;
-	while (1) {
+	for (;;) {
 		ssize_t i;
 		char buf[4096];
 #ifndef NO_COPY_FILE_RANGE
@@ -311,7 +315,7 @@ int file_copy(int src, int dst, int usebuf) {
 #endif
 			i = read(src, buf, sizeof(buf));
 			if (i <= 0) break;
-			write(dst, buf, i);
+			if (write(dst, buf, i) != i) break;
 #ifndef NO_COPY_FILE_RANGE
 		} else {
 			i = copy_file_range(src, 0, dst, 0, length - ret, 0);

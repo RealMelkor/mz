@@ -62,7 +62,7 @@ static int gethome(char *buf, size_t length) {
         return strlcpy(buf, pw->pw_dir, length);
 }
 
-static int trash_path(char *path, size_t length) {
+int trash_path(char *path, size_t length) {
 
 	char buf[1024];
 
@@ -133,7 +133,7 @@ int trash_send(int fd, char *path, char *name) {
 		/* check if there's not already a file with that id */
 		try = openat(client.trash, id, O_RDONLY);
 		if (try < 0) break;
-		close(i);
+		close(try);
 	} while (1);
 
 	trash_path(V(buf));
@@ -149,10 +149,11 @@ int trash_send(int fd, char *path, char *name) {
 
 int trash_clear(void) {
 
-	char path[PATH_MAX], cmd[PATH_MAX * 2];
+	char path[PATH_MAX], out[PATH_MAX], cmd[PATH_MAX * 2];
 
 	if (trash_path(V(path))) return -1;
-	snprintf(V(cmd), "rm -r %s", path);
+	format_path(path, out, sizeof(path));
+	snprintf(V(cmd), "rm -r '%s'", path);
 	if (system(cmd)) return -1;
 
 	close(client.trash);
@@ -223,6 +224,7 @@ int trash_restore(struct view *view) {
 			close(fd);
 			if (ret < 0) return -1;
 		}
+
 		view->entries[j].selected = -1;
 	}
 	return error;
@@ -251,38 +253,37 @@ int trash_refresh(struct view *view) {
 
 	/* rewrite info file */
 	fd = openat(client.trash, "info", O_CREAT|O_WRONLY|O_TRUNC, 0644);
-	if (!fd) return -1;
+	if (fd < 0) return -1;
 
 	i = 0;
 	while (i < view->length) {
 
 		char c;
 		size_t j = i++;
+		ssize_t length;
 
 		if (view->entries[j].selected == -1) continue;
 
-		write(fd, view->entries[j].other, ID_LENGTH);
+		if (write(fd, view->entries[j].other, ID_LENGTH) != ID_LENGTH)
+			break;
 		c = ' ';
-		write(fd, &c, 1);
-		write(fd, view->entries[j].name,
-			strnlen(V(view->entries[j].name)));
+		if (write(fd, &c, 1) != 1) break;
+		length = strnlen(V(view->entries[j].name));
+		if (write(fd, view->entries[j].name, length) != length) break;
 		c = '\n';
-		write(fd, &c, 1);
+		if (write(fd, &c, 1) != 1) break;
 	}
 	close(fd);
 
 	i = 0;
-	while (i < view->length) {
-		free(view->entries[i].other);
-	}
-
-	free(view->entries);
 
 	next = view->next;
 	prev = view->prev;
 	trash_view(view);
 	view->next = next;
 	view->prev = prev;
+
+	if (i != view->length) return -1;
 
 	return 0;
 }
@@ -301,7 +302,7 @@ int trash_view(struct view* view) {
 	if (fd < 0) return 0;
 
 	i = 0;
-	while (1) {
+	for (;;) {
 
 		void *ptr;
 		char id[ID_LENGTH];
@@ -366,6 +367,8 @@ int trash_view(struct view* view) {
 	for (i = 0; i < view->length; i++)
 		free(view->entries[i].other);
 	free(view->entries);
+	view->length = 0;
+	view->entries = NULL;
 	close(fd);
-	return -1;
+	return 0;
 }
