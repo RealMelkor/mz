@@ -35,6 +35,7 @@
 #include "view.h"
 #include "trash.h"
 #include "util.h"
+#include "spawn.h"
 
 #define TRASH "/.trash"
 #define ID_LENGTH 32
@@ -149,12 +150,10 @@ int trash_send(int fd, char *path, char *name) {
 
 int trash_clear(void) {
 
-	char path[PATH_MAX], out[PATH_MAX], cmd[PATH_MAX * 2];
+	char path[PATH_MAX];
 
 	if (trash_path(V(path))) return -1;
-	format_path(path, out, sizeof(path));
-	snprintf(V(cmd), "rm -r '%s'", path);
-	if (system(cmd)) return -1;
+	if (spawn("rm", 1, 1, "-r", path)) return -1;
 
 	close(client.trash);
 	client.trash = trash_init();

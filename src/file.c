@@ -37,6 +37,7 @@
 #include "strlcpy.h"
 #include "client.h"
 #include "util.h"
+#include "spawn.h"
 
 int file_init(struct view *view, const char* path) {
 
@@ -279,9 +280,8 @@ int file_copy_entry(struct view *view, struct entry *entry) {
 
 	if (S_ISDIR(st.st_mode)) {
 		char buf[PATH_MAX];
-		snprintf(V(buf), "cp -r \"%s/%s\" \"%s\"", client.copy_path,
-				client.copy->name, view->path);
-		return system(buf);
+		snprintf(V(buf), "%s/%s", client.copy_path, client.copy->name);
+		return spawn("cp", 1, 1, "-r", buf, view->path);
 	}
 
 	dstfd = openat(view->fd, entry->name, O_WRONLY|O_CREAT, st.st_mode);
@@ -360,11 +360,10 @@ int file_move(const char *oldpath, int srcdir, const char *oldname,
 		if (fstatat(srcdir, oldname, &st, 0)) return -1;
 		/* use a shell command instead of recursively copying files */
 		if (S_ISDIR(st.st_mode)) {
-			char buf[PATH_MAX * 3];
-			snprintf(V(buf), "mv \"%s/%s\" \"%s/%s\"",
-					oldpath, oldname,
-					newpath, newname);
-			return system(buf);
+			char old[PATH_MAX], new[PATH_MAX];
+			snprintf(V(old), "%s/%s", oldpath, oldname);
+			snprintf(V(new), "%s/%s", newpath, newname);
+			return spawn("mv", 1, 1, old, new, NULL);
 		}
 
 		src = openat(srcdir, oldname, O_RDONLY);

@@ -2354,7 +2354,7 @@ static int extract_esc_mouse(struct tb_event *event) {
 		int m_is_capital = 0;
 
 		for (i = 0; i < in->len; i++) {
-			if (in->buf[i] != ';') {
+			if (in->buf[i] == ';') {
 				if (indices[FIRST_SEMICOLON] == index_fail) {
 					indices[FIRST_SEMICOLON] = i;
 				} else {
@@ -2871,6 +2871,7 @@ static int cellbuf_resize(struct cellbuf_t *c, int w, int h) {
 }
 
 static int bytebuf_puts(struct bytebuf_t *b, const char *str) {
+	if (!str || strlen(str) <= 0) return TB_OK;
 	return bytebuf_nputs(b, str, (size_t)strlen(str));
 }
 

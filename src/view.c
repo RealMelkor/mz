@@ -34,6 +34,7 @@
 #include "strlcpy.h"
 #include "utf8.h"
 #include "trash.h"
+#include "spawn.h"
 
 struct view *view_init(const char *path) {
 	struct view *view = malloc(sizeof(struct view));
@@ -64,9 +65,7 @@ int format_path(const char *str, char *out, size_t length) {
 
 void view_open(struct view *view) {
 
-	const char xdg[] = "xdg-open '%s' >/dev/null 2>&1 &";
 	char name[PATH_MAX];
-	char buf[sizeof(name) + sizeof(xdg) + 1];
 
 	if (view->length < 1 || view->fd == TRASH_FD)
 		return;
@@ -84,8 +83,7 @@ void view_open(struct view *view) {
 			client.error = 1;
 			break;
 		}
-		snprintf(V(buf), xdg, name);
-		if (system(buf) == -1) {
+		if (spawn("xdg-open", 0, 1, name, NULL)) {
 			STRCPY(client.info, strerror(errno));
 			client.error = 1;
 		}

@@ -32,6 +32,7 @@
 #include "utf8.h"
 #include "trash.h"
 #include "util.h"
+#include "spawn.h"
 #ifdef HAS_INOTIFY
 #include <sys/inotify.h>
 #endif
@@ -189,25 +190,27 @@ int client_update(void) {
 	size_t i;
 
 #ifdef HAS_INOTIFY
-	if (!STRCMP(view->path, "Trash")) {
-		if (*client.watch) {
-			inotify_rm_watch(client.inotify_fd,
+	if (client.inotify_fd > 0) {
+		if (!STRCMP(view->path, "Trash")) {
+			if (*client.watch) {
+				inotify_rm_watch(client.inotify_fd,
 						client.inotify_watch);
-			*client.watch = 0;
-			client.inotify_watch = -1;
-		}
-	} else if (STRCMP(client.watch, view->path)) {
-		int fd;
-		if (*client.watch) {
-			inotify_rm_watch(client.inotify_fd,
+				*client.watch = 0;
+				client.inotify_watch = -1;
+			}
+		} else if (STRCMP(client.watch, view->path)) {
+			int fd;
+			if (*client.watch) {
+				inotify_rm_watch(client.inotify_fd,
 						client.inotify_watch);
+			}
+			fd = inotify_add_watch(client.inotify_fd, view->path,
+					IN_CREATE|IN_DELETE|
+					IN_MOVED_FROM|IN_MOVED_TO);
+			if (fd == -1) return -1;
+			STRCPY(client.watch, view->path);
+			client.inotify_watch = fd;
 		}
-		fd = inotify_add_watch(client.inotify_fd, view->path,
-				IN_CREATE|IN_DELETE|
-				IN_MOVED_FROM|IN_MOVED_TO);
-		if (fd == -1) return -1;
-		STRCPY(client.watch, view->path);
-		client.inotify_watch = fd;
 	}
 #endif
 
@@ -334,7 +337,7 @@ int parse_command(void) {
 			return 0;
 		}
 		tb_shutdown();
-		if (system(&client.field[2])) sleep(1);
+		if (system(&client.field[2])) display_errno();
 		tb_init();
 		file_ls(client.view);
 		return 0;
@@ -345,7 +348,7 @@ int parse_command(void) {
 			return 0;
 		}
 		tb_shutdown();
-		if (system("$SHELL") == -1) {
+		if (spawn(getenv("SHELL"), 1, 0, NULL) == -1) {
 			display_errno();
 			return 0;
 		}
@@ -467,6 +470,7 @@ int client_input(void) {
 	ret = tb_poll_event(&ev, fd);
 	if (ret == TB_ERR_INOTIFY) {
 		client.inotify_fd = -1;
+		inotify_init();
 		return 0;
 	} else if (ret != TB_OK && ret != TB_ERR_POLL) {
 		return -1;
@@ -549,8 +553,7 @@ open:
 		if (!ptr)
 			break;
 		STRCPY(name, ptr + 1);
-		if (file_up(view))
-			break;
+		if (file_up(view)) break;
 		file_ls(view);
 		view_select(view, name);
 	}
@@ -598,11 +601,9 @@ open:
 	{
 		char buf[PATH_MAX + 256];
 		if (view->fd == TRASH_FD) {
-			char path[PATH_MAX];
-			if (trash_rawpath(view, V(path))) break;
-			snprintf(V(buf), "$EDITOR \"%s\"", path);
+			if (trash_rawpath(view, V(buf))) break;
 		} else {
-			snprintf(V(buf), "$EDITOR \"%s/%s\"",
+			snprintf(V(buf), "%s/%s",
 				view->path, SELECTED(view).name);
 			if (chdir(view->path)) {
 				display_errno();
@@ -610,7 +611,7 @@ open:
 			}
 		}
 		tb_shutdown();
-		if (system(buf) == -1) {
+		if (spawn(getenv("EDITOR"), 1, 0, buf, NULL)) {
 			display_errno();
 		}
 		tb_init();
@@ -708,21 +709,29 @@ open:
 	{
 		char buf[2048];
 		client.y = 0;
-		if (!system("xclip >/dev/null 2>&1")) {
-			snprintf(V(buf),
-				"printf \"%s/%s\" | "
-				"xclip -sel clip >/dev/null 2>&1",
+		if (!spawn("xclip", 1, 1, "-v", NULL)) {
+			snprintf(V(buf), "%s/%s",
 				view->path, SELECTED(view).name);
-			if (!system(buf)) {
+			if (spawn_pipe("xclip", buf, 1, 1,
+						"-sel", "clip", NULL)) {
+				display_errno();
+				break;
+			}
+		} else if (!spawn("wl-copy", 1, 1, "-v", NULL)) {
+			snprintf(V(buf), "%s/%s",
+				view->path, SELECTED(view).name);
+			if (spawn_pipe("wl-copy", buf, 1, 0, NULL)) {
 				display_errno();
 				break;
 			}
 		}
 		if (getenv("TMUX")) { /* try tmux if no xclip */
-			snprintf(V(buf),
-				"printf \"%s/%s\" | tmux load-buffer -",
+			snprintf(V(buf), "%s/%s",
 				view->path, SELECTED(view).name);
-			if (system(buf) == -1) display_errno();
+			if (spawn_pipe("tmux", buf, 1, 1, "load-buffer",
+						"-", NULL) == -1) {
+				display_errno();
+			}
 		}
 	}
 		break;
