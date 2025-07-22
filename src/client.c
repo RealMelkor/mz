@@ -332,12 +332,15 @@ int parse_command(void) {
         if (!STRCMP(client.field, ":nt") || !STRCMP(client.field, ":tabnew"))
                 return newtab();
 	if (STARTWITH(client.field, ":!")) {
+		int err;
 		if (fchdir(client.view->fd)) {
 			display_errno();
 			return 0;
 		}
 		tb_shutdown();
-		if (system(&client.field[2])) display_errno();
+		err = system(&client.field[2]);
+		if (err == -1) display_errno();
+		else if (err) sleep(1);
 		tb_init();
 		file_ls(client.view);
 		return 0;

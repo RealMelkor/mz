@@ -38,6 +38,7 @@
 #include "client.h"
 #include "util.h"
 #include "spawn.h"
+#include "trash.h"
 
 int file_init(struct view *view, const char* path) {
 
@@ -144,6 +145,9 @@ int file_sort(const void* a, const void* b)
 }
 
 int file_reload(struct view *view) {
+	if (view->fd == TRASH_FD) {
+		return trash_view(view);
+	}
 	close(view->fd);
 	view->fd = open(view->path, O_DIRECTORY);
 	if (view->fd < 0) return -1;

@@ -67,21 +67,25 @@ void view_open(struct view *view) {
 
 	char name[PATH_MAX];
 
-	if (view->length < 1 || view->fd == TRASH_FD)
+	if (view->length < 1)
 		return;
 
 	client.error = 0;
 	switch (view->entries[view->selected].type) {
 	case DT_REG:
-		if (chdir(view->path)) {
-			STRCPY(client.info, strerror(errno));
-			client.error = 1;
-			break;
-		}
-		if (format_path(SELECTED(view).name, V(name))) {
-			STRCPY(client.info, "path too long");
-			client.error = 1;
-			break;
+		if (view->fd == TRASH_FD) {
+			trash_rawpath(view, V(name));
+		} else {
+			if (chdir(view->path)) {
+				STRCPY(client.info, strerror(errno));
+				client.error = 1;
+				break;
+			}
+			if (format_path(SELECTED(view).name, V(name))) {
+				STRCPY(client.info, "path too long");
+				client.error = 1;
+				break;
+			}
 		}
 		if (spawn("xdg-open", 0, 1, name, NULL)) {
 			STRCPY(client.info, strerror(errno));
@@ -89,6 +93,7 @@ void view_open(struct view *view) {
 		}
 		break;
 	case DT_DIR:
+		if (view->fd == TRASH_FD) break;
 		if (file_cd(view, SELECTED(view).name)) {
 			STRCPY(client.info, strerror(errno));
 			client.error = 1;
